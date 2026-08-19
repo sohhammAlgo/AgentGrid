@@ -2,15 +2,27 @@ package agentgrid.common;
 
 import java.io.Serializable;
 
+<<<<<<< HEAD
+=======
+/**
+ * Represents one unit of work dispatched to an AgentNode.
+ * Implements Serializable because Java RMI marshals whole objects
+ * across the network by value.
+ */
+>>>>>>> bf3b5a39342d188269adf8991709e660f7025aee
 public class Subtask implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     public enum Type {
+<<<<<<< HEAD
         RETRIEVE,
         RANK,
         SUMMARIZE,
         SYNTHESIZE
+=======
+        RETRIEVE, RANK, SUMMARIZE, SYNTHESIZE
+>>>>>>> bf3b5a39342d188269adf8991709e660f7025aee
     }
 
     private final String taskId;
@@ -55,6 +67,7 @@ public class Subtask implements Serializable {
 
     @Override
     public String toString() {
+<<<<<<< HEAD
         return "Subtask{" +
                 subtaskId +
                 ", type=" +
@@ -64,3 +77,10 @@ public class Subtask implements Serializable {
                 "}";
     }
 }
+=======
+        return "Subtask{" + subtaskId
+                + ", type=" + type
+                + ", ts=" + lamportTimestamp + "}";
+    }
+}
+>>>>>>> bf3b5a39342d188269adf8991709e660f7025aee
