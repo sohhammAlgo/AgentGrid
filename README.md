@@ -13,6 +13,11 @@ backend/src/main/java/agentgrid/
             AgentServer              — binds an agent into the RMI registry
             AgentClient              — Experiment 1 client
   agent/    ConcurrencyBenchmarkClient — Experiment 2 client
+  clock/    LamportClock             — logical clock (causal event ordering)
+            TimeService              — remote interface for a node's physical clock
+            TimeServiceImpl          — drift-simulating clock, corrected by offset
+            TimeServer               — bootstraps one time node
+            BerkeleySyncCoordinator  — Experiment 3 physical sync driver
 ```
 
 ## Requirements
@@ -70,3 +75,59 @@ Serial execution:     1223 ms
 Thread-pooled batch:  309 ms
 Speedup:              3.96x
 ```
+
+### Experiment 3 — clock synchronization
+
+**Part A, Lamport logical clocks.** `AgentServiceImpl` holds a `LamportClock`;
+every `execute()` applies the receive rule `max(local, received) + 1` and stamps
+the outgoing `Result` with the result. No extra process is needed — start an
+agent and run either client, then read the server log:
+
+```
+[agent-1] executing Subtask{subtask-0, ...} on pool-1-thread-1 | lamport=9
+[agent-1] executing Subtask{subtask-1, ...} on pool-1-thread-2 | lamport=10
+```
+
+Sorting a merged multi-node trace by `lamport=` reconstructs a causally legal
+execution order.
+
+**Part B, Berkeley physical sync.** Start three nodes with simulated drift, each
+in its own terminal:
+
+```bash
+cd backend
+java -cp build/classes agentgrid.clock.TimeServer node-a 1100 3000
+java -cp build/classes agentgrid.clock.TimeServer node-b 1101 -2000
+java -cp build/classes agentgrid.clock.TimeServer node-c 1102 500
+```
+
+Then run the coordinator:
+
+```bash
+java -cp build/classes agentgrid.clock.BerkeleySyncCoordinator \
+    node-a:1100 node-b:1101 node-c:1102
+```
+
+It polls every node, averages the round-trip-compensated offsets, sends each node
+its correction, and re-polls:
+
+```
+--- BEFORE SYNC ---
+node        reported time    vs average    rtt
+node-a      1788841479670    +2500 ms      1 ms
+node-b      1788841474671    -2500 ms      1 ms
+node-c      1788841477172    +0 ms         0 ms
+
+--- AFTER SYNC ---
+node-a      1788841477224    +1 ms         2 ms
+node-b      1788841477225    +1 ms         1 ms
+node-c      1788841477225    +0 ms         0 ms
+
+--- summary ---
+Max clock spread before: 5000 ms
+Max clock spread after:  1 ms
+```
+
+All three converge on offset `+500 ms`, the mean of `+3000`, `-2000` and `+500`.
+Berkeley makes nodes agree with *each other*, not with true time — which is
+exactly what comparing cross-node timestamps requires.

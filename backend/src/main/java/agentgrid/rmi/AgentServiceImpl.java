@@ -1,5 +1,6 @@
 package agentgrid.rmi;
 
+import agentgrid.clock.LamportClock;
 import agentgrid.common.Result;
 import agentgrid.common.Subtask;
 
@@ -28,6 +29,15 @@ public class AgentServiceImpl
 
     private final AtomicInteger queueDepth =
             new AtomicInteger(0);
+
+    /*
+     * Experiment 3:
+     * Logical clock ordering this agent's events against the rest of the grid.
+     * Shared by every RMI dispatch thread and every thread-pool worker, which is
+     * why LamportClock synchronizes internally.
+     */
+    private final LamportClock lamportClock =
+            new LamportClock();
 
     /*
      * Experiment 2:
@@ -67,11 +77,25 @@ public class AgentServiceImpl
 
         try {
 
+            /*
+             * Experiment 3:
+             * Receiving a Subtask is a Lamport receive event, so the clock jumps to
+             * max(local, sender) + 1. The old code stamped the Result with
+             * subtask.getLamportTimestamp() + 1, which ignored everything else this
+             * agent had already done and let concurrent subtasks collide on the
+             * same timestamp.
+             */
+            long eventTime =
+                    lamportClock.update(
+                            subtask.getLamportTimestamp()
+                    );
+
             System.out.println(
                     "[" + agentId + "] executing "
                     + subtask
                     + " on "
                     + Thread.currentThread().getName()
+                    + " | lamport=" + eventTime
             );
 
             String output =
@@ -81,7 +105,7 @@ public class AgentServiceImpl
                     subtask.getSubtaskId(),
                     agentId,
                     output,
-                    subtask.getLamportTimestamp() + 1,
+                    eventTime,
                     true
             );
 
@@ -222,5 +246,17 @@ public class AgentServiceImpl
             throws RemoteException {
 
         return queueDepth.get();
+    }
+
+    /**
+     * Current logical time of this agent, for trace inspection.
+     * Node-local and not part of the AgentService remote interface — reading a
+     * Lamport clock is not an event and must not advance it.
+     *
+     * @return this agent's current Lamport timestamp
+     */
+    public long getLamportTime() {
+
+        return lamportClock.getTime();
     }
 }
