@@ -5,17 +5,12 @@ import agentgrid.common.Subtask;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
-<<<<<<< HEAD
-=======
 import java.util.List;
->>>>>>> bf3b5a39342d188269adf8991709e660f7025aee
 
 public interface AgentService extends Remote {
 
     Result execute(Subtask subtask) throws RemoteException;
 
-<<<<<<< HEAD
-=======
     /**
      * Execute several subtasks concurrently on this node's thread pool
      * and return all results once every subtask has completed.
@@ -27,7 +22,6 @@ public interface AgentService extends Remote {
     List<Result> executeBatch(List<Subtask> subtasks)
             throws RemoteException;
 
->>>>>>> bf3b5a39342d188269adf8991709e660f7025aee
     boolean ping() throws RemoteException;
 
     String getAgentId() throws RemoteException;

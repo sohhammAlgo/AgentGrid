@@ -5,8 +5,6 @@ import agentgrid.common.Subtask;
 
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
-<<<<<<< HEAD
-=======
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,7 +14,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
->>>>>>> bf3b5a39342d188269adf8991709e660f7025aee
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class AgentServiceImpl
@@ -25,17 +22,9 @@ public class AgentServiceImpl
 
     private static final long serialVersionUID = 1L;
 
+    private static final int DEFAULT_POOL_SIZE = 4;
+
     private final String agentId;
-<<<<<<< HEAD
-    private final AtomicInteger queueDepth =
-            new AtomicInteger(0);
-
-    public AgentServiceImpl(String agentId)
-            throws RemoteException {
-
-        super();
-        this.agentId = agentId;
-=======
 
     private final AtomicInteger queueDepth =
             new AtomicInteger(0);
@@ -49,7 +38,7 @@ public class AgentServiceImpl
     public AgentServiceImpl(String agentId)
             throws RemoteException {
 
-        this(agentId, 4);
+        this(agentId, DEFAULT_POOL_SIZE);
     }
 
     public AgentServiceImpl(String agentId, int poolSize)
@@ -57,11 +46,17 @@ public class AgentServiceImpl
 
         super();
 
+        if (poolSize < 1) {
+
+            throw new IllegalArgumentException(
+                    "poolSize must be >= 1, got " + poolSize
+            );
+        }
+
         this.agentId = agentId;
 
         this.threadPool =
                 Executors.newFixedThreadPool(poolSize);
->>>>>>> bf3b5a39342d188269adf8991709e660f7025aee
     }
 
     @Override
@@ -71,13 +66,6 @@ public class AgentServiceImpl
         queueDepth.incrementAndGet();
 
         try {
-<<<<<<< HEAD
-            System.out.println(
-                    "[" + agentId + "] executing " + subtask
-            );
-
-            String output = simpleAgentLogic(subtask);
-=======
 
             System.out.println(
                     "[" + agentId + "] executing "
@@ -88,7 +76,6 @@ public class AgentServiceImpl
 
             String output =
                     simpleAgentLogic(subtask);
->>>>>>> bf3b5a39342d188269adf8991709e660f7025aee
 
             return new Result(
                     subtask.getSubtaskId(),
@@ -99,17 +86,11 @@ public class AgentServiceImpl
             );
 
         } finally {
-<<<<<<< HEAD
-=======
 
->>>>>>> bf3b5a39342d188269adf8991709e660f7025aee
             queueDepth.decrementAndGet();
         }
     }
 
-<<<<<<< HEAD
-    private String simpleAgentLogic(Subtask subtask) {
-=======
     @Override
     public List<Result> executeBatch(
             List<Subtask> subtasks)
@@ -145,6 +126,15 @@ public class AgentServiceImpl
                         future.get()
                 );
 
+            } catch (InterruptedException e) {
+
+                Thread.currentThread().interrupt();
+
+                throw new RemoteException(
+                        "Interrupted while awaiting subtask results",
+                        e
+                );
+
             } catch (Exception e) {
 
                 throw new RemoteException(
@@ -164,27 +154,10 @@ public class AgentServiceImpl
          * Simulated I/O latency.
          */
         simulateIoLatency();
->>>>>>> bf3b5a39342d188269adf8991709e660f7025aee
 
         switch (subtask.getType()) {
 
             case RETRIEVE:
-<<<<<<< HEAD
-                return "retrieved[" +
-                        subtask.getPayload() + "]";
-
-            case RANK:
-                return "ranked[" +
-                        subtask.getPayload() + "]";
-
-            case SUMMARIZE:
-                return "summary of: " +
-                        subtask.getPayload();
-
-            case SYNTHESIZE:
-                return "synthesized: " +
-                        subtask.getPayload();
-=======
                 return "retrieved["
                         + subtask.getPayload()
                         + "]";
@@ -201,17 +174,12 @@ public class AgentServiceImpl
             case SYNTHESIZE:
                 return "synthesized: "
                         + subtask.getPayload();
->>>>>>> bf3b5a39342d188269adf8991709e660f7025aee
 
             default:
                 return "unknown-op";
         }
     }
 
-<<<<<<< HEAD
-    @Override
-    public boolean ping() throws RemoteException {
-=======
     /*
      * Simulate 150 ms of I/O-bound work.
      */
@@ -239,7 +207,6 @@ public class AgentServiceImpl
     public boolean ping()
             throws RemoteException {
 
->>>>>>> bf3b5a39342d188269adf8991709e660f7025aee
         return true;
     }
 

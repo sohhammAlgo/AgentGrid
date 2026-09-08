@@ -1,4 +1,3 @@
-
 package agentgrid.agent;
 
 import agentgrid.common.Result;
@@ -116,14 +115,25 @@ public class ConcurrencyBenchmarkClient {
                 + " ms"
         );
 
-        System.out.printf(
-                "Speedup:              %.2fx%n",
-                (double) serialMs / pooledMs
-        );
+        if (pooledMs > 0) {
+
+            System.out.printf(
+                    "Speedup:              %.2fx%n",
+                    (double) serialMs / pooledMs
+            );
+
+        } else {
+
+            System.out.println(
+                    "Speedup:              n/a (batch too fast to time)"
+            );
+        }
 
         System.out.println(
                 "Sample result:        "
-                + results.get(0)
+                + (results.isEmpty()
+                        ? "(none)"
+                        : results.get(0))
         );
     }
 

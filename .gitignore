@@ -1,1 +1,5 @@
 docs
+
+# Build output
+build/
+*.class

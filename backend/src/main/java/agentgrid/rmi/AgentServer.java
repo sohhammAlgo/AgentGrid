@@ -20,29 +20,21 @@ public class AgentServer {
         try {
 
             AgentServiceImpl agent =
-<<<<<<< HEAD
                     new AgentServiceImpl(agentId);
-=======
-                    new AgentServiceImpl(agentId, 4);
->>>>>>> bf3b5a39342d188269adf8991709e660f7025aee
 
             Registry registry =
                     LocateRegistry.createRegistry(port);
 
             registry.rebind(agentId, agent);
 
-            System.out.println(
-<<<<<<< HEAD
-                    "[" + agentId +
-                    "] bound and ready on port " +
-                    port
+            /*
+             * Release the worker thread pool on Ctrl-C / JVM shutdown.
+             */
+            Runtime.getRuntime().addShutdownHook(
+                    new Thread(agent::shutdown)
             );
 
             System.out.println(
-                    "[" + agentId +
-                    "] lookup name: rmi://localhost:" +
-                    port + "/" + agentId
-=======
                     "[" + agentId
                     + "] bound and ready on port "
                     + port
@@ -54,19 +46,13 @@ public class AgentServer {
                     + port
                     + "/"
                     + agentId
->>>>>>> bf3b5a39342d188269adf8991709e660f7025aee
             );
 
         } catch (Exception e) {
 
             System.err.println(
-<<<<<<< HEAD
-                    "AgentServer failed to start: " +
-                    e.getMessage()
-=======
                     "AgentServer failed to start: "
                     + e.getMessage()
->>>>>>> bf3b5a39342d188269adf8991709e660f7025aee
             );
 
             e.printStackTrace();
