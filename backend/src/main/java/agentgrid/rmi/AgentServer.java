@@ -7,55 +7,21 @@ public class AgentServer {
 
     public static void main(String[] args) {
 
-        String agentId =
-                args.length > 0
-                        ? args[0]
-                        : "agent-1";
-
-        int port =
-                args.length > 1
-                        ? Integer.parseInt(args[1])
-                        : 1099;
+        String agentId = args.length > 0 ? args[0] : "agent-1";
+        int port = args.length > 1 ? Integer.parseInt(args[1]) : 1099;
+        int poolSize = args.length > 2 ? Integer.parseInt(args[2]) : 4;
 
         try {
-
-            AgentServiceImpl agent =
-                    new AgentServiceImpl(agentId);
-
-            Registry registry =
-                    LocateRegistry.createRegistry(port);
-
+            AgentServiceImpl agent = new AgentServiceImpl(agentId, poolSize);
+            Registry registry = LocateRegistry.createRegistry(port);
             registry.rebind(agentId, agent);
 
-            /*
-             * Release the worker thread pool on Ctrl-C / JVM shutdown.
-             */
-            Runtime.getRuntime().addShutdownHook(
-                    new Thread(agent::shutdown)
-            );
-
-            System.out.println(
-                    "[" + agentId
-                    + "] bound and ready on port "
-                    + port
-            );
-
-            System.out.println(
-                    "[" + agentId
-                    + "] lookup name: rmi://localhost:"
-                    + port
-                    + "/"
-                    + agentId
-            );
-
+            System.out.println("[" + agentId + "] bound on port " + port
+                    + " with pool size " + poolSize);
         } catch (Exception e) {
-
-            System.err.println(
-                    "AgentServer failed to start: "
-                    + e.getMessage()
-            );
-
+            System.err.println("AgentServer failed to start: " + e.getMessage());
             e.printStackTrace();
         }
+
     }
 }

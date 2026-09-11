@@ -18,6 +18,11 @@ backend/src/main/java/agentgrid/
             TimeServiceImpl          — drift-simulating clock, corrected by offset
             TimeServer               — bootstraps one time node
             BerkeleySyncCoordinator  — Experiment 3 physical sync driver
+  balancer/ LoadBalancer             — pluggable routing policy interface
+            RoundRobinBalancer       — cycles nodes in fixed order
+            WeightedBalancer         — smooth weighted round-robin by capacity
+            LeastLoadedBalancer      — real-time queue depth routing over RMI
+            LoadBalancerDemo         — Experiment 4 load balancing driver
 ```
 
 ## Requirements
@@ -131,3 +136,42 @@ Max clock spread after:  1 ms
 All three converge on offset `+500 ms`, the mean of `+3000`, `-2000` and `+500`.
 Berkeley makes nodes agree with *each other*, not with true time — which is
 exactly what comparing cross-node timestamps requires.
+
+### Experiment 4 — load balancing
+
+Start three agent nodes with different pool sizes simulating heterogeneous hardware capacities (weak, medium, strong), each in its own terminal:
+
+```bash
+cd backend
+java -cp build/classes agentgrid.rmi.AgentServer agent-weak 1201 2
+java -cp build/classes agentgrid.rmi.AgentServer agent-medium 1202 4
+java -cp build/classes agentgrid.rmi.AgentServer agent-strong 1203 6
+```
+
+Then run the load balancer demonstration client:
+
+```bash
+cd backend
+java -cp build/classes agentgrid.balancer.LoadBalancerDemo
+```
+
+It dispatches a batch of 18 subtasks under three routing policies (`RoundRobin`, `Weighted`, and `LeastLoaded`) and reports the distribution and makespan:
+
+```
+Connected nodes: 3 (pool sizes 2 / 4 / 6, simulating weak / medium / strong hardware)
+
+--- RoundRobin ---
+ Distribution: {agent-strong=6, agent-weak=6, agent-medium=6}
+ Makespan: 224 ms
+
+--- Weighted ---
+ Distribution: {agent-weak=3, agent-strong=9, agent-medium=6}
+ Makespan: 181 ms
+
+--- LeastLoaded ---
+ Distribution: {agent-strong=6, agent-weak=6, agent-medium=6}
+ Makespan: 217 ms
+```
+
+Routing subtasks proportional to node processing capacity via `Weighted` balancing reduces overall makespan compared to uniform `RoundRobin` distribution.
+
