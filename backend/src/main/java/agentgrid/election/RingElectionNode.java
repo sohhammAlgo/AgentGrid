@@ -15,11 +15,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Implementation of the Chang-Roberts Ring Leader Election algorithm.
  *
- * Nodes are arranged in a logical ring sequence (ordered by ID or explicit list).
+ * Algorithm Overview:
+ * Nodes are arranged in a logical ring topology.
  * When an election is triggered:
- * 1. An ELECTION token containing the candidate ID is passed clockwise to the next live node in the ring.
- * 2. Higher candidate IDs override lower ones.
- * 3. When a node receives its own candidate ID back, it is elected LEADER and circulates a COORDINATOR message.
+ * 1. An ELECTION token containing a candidate ID is passed clockwise to the next live node in the ring.
+ * 2. When a node receives a message:
+ *    - If candidateId > myId: Forward the higher candidate ID.
+ *    - If candidateId < myId: Replace candidate ID with myId and forward.
+ *    - If candidateId == myId: The candidate token has traversed the entire ring. Declare self as LEADER and circulate COORDINATOR.
  */
 public class RingElectionNode extends UnicastRemoteObject implements ElectionNodeService {
 
@@ -37,6 +40,15 @@ public class RingElectionNode extends UnicastRemoteObject implements ElectionNod
 
     private final ExecutorService asyncExecutor = Executors.newCachedThreadPool();
 
+    /**
+     * Constructs a Ring Election Node.
+     *
+     * @param nodeId integer identifier of this node
+     * @param port RMI registry port
+     * @param ringOrder ordered list defining the logical ring topology
+     * @param nodePortMap registry mapping of all cluster node IDs to ports
+     * @param metrics empirical metrics collector (optional)
+     */
     public RingElectionNode(
             int nodeId,
             int port,
@@ -92,6 +104,9 @@ public class RingElectionNode extends UnicastRemoteObject implements ElectionNod
         }
     }
 
+    /**
+     * Initiates a ring election asynchronously by dispatching an ELECTION token clockwise.
+     */
     @Override
     public void startElection() {
         if (!alive.get()) {
@@ -126,26 +141,32 @@ public class RingElectionNode extends UnicastRemoteObject implements ElectionNod
         }
     }
 
+    /**
+     * Handles candidate token forwarding under Chang-Roberts rules.
+     */
     private void handleElectionMessage(RingMessage msg) {
         int candidate = msg.getCandidateId();
 
         if (candidate > nodeId) {
-            // Forward higher candidate ID
+            // Case 1: Received higher candidate ID -> Forward message
             electionParticipant.set(true);
             System.out.println("[Ring Node " + nodeId + "] Forwarding candidate Node " + candidate);
             forwardToSuccessor(new RingMessage(RingMessage.Type.ELECTION, candidate, msg.getInitiatorId(), msg.getHopCount() + 1));
+
         } else if (candidate < nodeId) {
+            // Case 2: Received lower candidate ID
             if (!electionParticipant.get()) {
-                // Replace candidate with self ID and forward
+                // If not yet participating, replace candidate with self ID and forward
                 electionParticipant.set(true);
                 System.out.println("[Ring Node " + nodeId + "] Replacing candidate Node " + candidate + " with self Node " + nodeId);
                 forwardToSuccessor(new RingMessage(RingMessage.Type.ELECTION, nodeId, msg.getInitiatorId(), msg.getHopCount() + 1));
             } else {
-                // Discard lower candidate message if already participating with a higher candidate
+                // Discard lower candidate ID if already participating with a higher candidate
                 System.out.println("[Ring Node " + nodeId + "] Discarded lower candidate Node " + candidate);
             }
+
         } else {
-            // candidate == nodeId: Message completed full ring circuit!
+            // Case 3: candidate == nodeId -> Token completed full ring traversal!
             this.leaderId = nodeId;
             this.electionParticipant.set(false);
             System.out.println("[Ring Node " + nodeId + "] ELECTED LEADER via Ring!");
@@ -154,12 +175,15 @@ public class RingElectionNode extends UnicastRemoteObject implements ElectionNod
                 metrics.recordCompletion(nodeId);
             }
 
-            // Circulate COORDINATOR message
+            // Circulate COORDINATOR message around the ring
             RingMessage coordMsg = new RingMessage(RingMessage.Type.COORDINATOR, nodeId, nodeId, 1);
             forwardToSuccessor(coordMsg);
         }
     }
 
+    /**
+     * Handles COORDINATOR message propagation around the logical ring.
+     */
     private void handleCoordinatorMessage(RingMessage msg) {
         int electedLeader = msg.getCandidateId();
 
@@ -168,15 +192,19 @@ public class RingElectionNode extends UnicastRemoteObject implements ElectionNod
             this.electionParticipant.set(false);
             System.out.println("[Ring Node " + nodeId + "] Recognized Leader: Node " + electedLeader);
 
-            // Forward coordinator message around ring
+            // Forward coordinator announcement clockwise
             forwardToSuccessor(new RingMessage(RingMessage.Type.COORDINATOR, electedLeader, msg.getInitiatorId(), msg.getHopCount() + 1));
+
         } else {
-            // Coordinator message returned to leader — ring setup complete
+            // Coordinator announcement completed ring circuit
             this.electionParticipant.set(false);
             System.out.println("[Ring Node " + nodeId + "] Coordinator message ring traversal complete.");
         }
     }
 
+    /**
+     * Forwards a RingMessage clockwise to the next active node in the logical ring topology.
+     */
     private void forwardToSuccessor(RingMessage msg) {
         int myIndex = ringOrder.indexOf(nodeId);
         if (myIndex < 0) {
@@ -201,7 +229,7 @@ public class RingElectionNode extends UnicastRemoteObject implements ElectionNod
                         return;
                     }
                 } catch (Exception e) {
-                    // Successor down, try next node in ring
+                    // Successor down; try next node in ring
                 }
             }
         }

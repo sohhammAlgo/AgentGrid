@@ -6,29 +6,21 @@ import agentgrid.common.Subtask;
 
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
-
 import java.util.ArrayList;
 import java.util.List;
-
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class AgentServiceImpl
-        extends UnicastRemoteObject
-        implements AgentService {
+public class AgentServiceImpl extends UnicastRemoteObject implements AgentService {
 
     private static final long serialVersionUID = 1L;
-
     private static final int DEFAULT_POOL_SIZE = 4;
 
     private final String agentId;
-
-    private final AtomicInteger queueDepth =
-            new AtomicInteger(0);
+    private final AtomicInteger queueDepth = new AtomicInteger(0);
 
     /*
      * Experiment 3:
@@ -36,8 +28,7 @@ public class AgentServiceImpl
      * Shared by every RMI dispatch thread and every thread-pool worker, which is
      * why LamportClock synchronizes internally.
      */
-    private final LamportClock lamportClock =
-            new LamportClock();
+    private final LamportClock lamportClock = new LamportClock();
 
     /*
      * Experiment 2:
@@ -45,38 +36,23 @@ public class AgentServiceImpl
      */
     private final ExecutorService threadPool;
 
-    public AgentServiceImpl(String agentId)
-            throws RemoteException {
-
+    public AgentServiceImpl(String agentId) throws RemoteException {
         this(agentId, DEFAULT_POOL_SIZE);
     }
 
-    public AgentServiceImpl(String agentId, int poolSize)
-            throws RemoteException {
-
+    public AgentServiceImpl(String agentId, int poolSize) throws RemoteException {
         super();
-
         if (poolSize < 1) {
-
-            throw new IllegalArgumentException(
-                    "poolSize must be >= 1, got " + poolSize
-            );
+            throw new IllegalArgumentException("poolSize must be >= 1, got " + poolSize);
         }
-
         this.agentId = agentId;
-
-        this.threadPool =
-                Executors.newFixedThreadPool(poolSize);
+        this.threadPool = Executors.newFixedThreadPool(poolSize);
     }
 
     @Override
-    public Result execute(Subtask subtask)
-            throws RemoteException {
-
+    public Result execute(Subtask subtask) throws RemoteException {
         queueDepth.incrementAndGet();
-
         try {
-
             /*
              * Experiment 3:
              * Receiving a Subtask is a Lamport receive event, so the clock jumps to
@@ -85,21 +61,14 @@ public class AgentServiceImpl
              * agent had already done and let concurrent subtasks collide on the
              * same timestamp.
              */
-            long eventTime =
-                    lamportClock.update(
-                            subtask.getLamportTimestamp()
-                    );
+            long eventTime = lamportClock.update(subtask.getLamportTimestamp());
 
-            System.out.println(
-                    "[" + agentId + "] executing "
-                    + subtask
-                    + " on "
+            System.out.println("[" + agentId + "] executing "
+                    + subtask + " on "
                     + Thread.currentThread().getName()
-                    + " | lamport=" + eventTime
-            );
+                    + " | lamport=" + eventTime);
 
-            String output =
-                    simpleAgentLogic(subtask);
+            String output = simpleAgentLogic(subtask);
 
             return new Result(
                     subtask.getSubtaskId(),
@@ -108,97 +77,55 @@ public class AgentServiceImpl
                     eventTime,
                     true
             );
-
         } finally {
-
             queueDepth.decrementAndGet();
         }
     }
 
     @Override
-    public List<Result> executeBatch(
-            List<Subtask> subtasks)
-            throws RemoteException {
-
-        List<Future<Result>> futures =
-                new ArrayList<>();
+    public List<Result> executeBatch(List<Subtask> subtasks) throws RemoteException {
+        List<Future<Result>> futures = new ArrayList<>();
 
         /*
          * Submit every subtask to the thread pool.
          */
         for (Subtask subtask : subtasks) {
-
-            Callable<Result> job =
-                    () -> execute(subtask);
-
-            futures.add(
-                    threadPool.submit(job)
-            );
+            Callable<Result> job = () -> execute(subtask);
+            futures.add(threadPool.submit(job));
         }
 
         /*
          * Collect results in submission order.
          */
-        List<Result> results =
-                new ArrayList<>();
-
+        List<Result> results = new ArrayList<>();
         for (Future<Result> future : futures) {
-
             try {
-
-                results.add(
-                        future.get()
-                );
-
+                results.add(future.get());
             } catch (InterruptedException e) {
-
                 Thread.currentThread().interrupt();
-
-                throw new RemoteException(
-                        "Interrupted while awaiting subtask results",
-                        e
-                );
-
+                throw new RemoteException("Interrupted while awaiting subtask results", e);
             } catch (Exception e) {
-
-                throw new RemoteException(
-                        "Subtask execution failed in thread pool",
-                        e
-                );
+                throw new RemoteException("Subtask execution failed in thread pool", e);
             }
         }
-
         return results;
     }
 
-    private String simpleAgentLogic(
-            Subtask subtask) {
-
+    private String simpleAgentLogic(Subtask subtask) {
         /*
          * Simulated I/O latency.
          */
         simulateIoLatency();
 
         switch (subtask.getType()) {
-
             case RETRIEVE:
-                return "retrieved["
-                        + subtask.getPayload()
-                        + "]";
-
+                return "retrieved[" + subtask.getPayload() + "]";
             case RANK:
-                return "ranked["
-                        + subtask.getPayload()
-                        + "]";
-
+                return "ranked[" + subtask.getPayload() + "]";
             case SUMMARIZE:
-                return "summary of: "
-                        + subtask.getPayload();
-
+                return "summary of: " + subtask.getPayload();
             case SYNTHESIZE:
-                return "synthesized: "
-                        + subtask.getPayload();
-
+                return "synthesized: " + subtask.getPayload();
             default:
                 return "unknown-op";
         }
@@ -208,13 +135,9 @@ public class AgentServiceImpl
      * Simulate 150 ms of I/O-bound work.
      */
     private void simulateIoLatency() {
-
         try {
-
             Thread.sleep(150);
-
         } catch (InterruptedException e) {
-
             Thread.currentThread().interrupt();
         }
     }
@@ -223,28 +146,21 @@ public class AgentServiceImpl
      * Shutdown the worker thread pool.
      */
     public void shutdown() {
-
         threadPool.shutdown();
     }
 
     @Override
-    public boolean ping()
-            throws RemoteException {
-
+    public boolean ping() throws RemoteException {
         return true;
     }
 
     @Override
-    public String getAgentId()
-            throws RemoteException {
-
+    public String getAgentId() throws RemoteException {
         return agentId;
     }
 
     @Override
-    public int getQueueDepth()
-            throws RemoteException {
-
+    public int getQueueDepth() throws RemoteException {
         return queueDepth.get();
     }
 
@@ -256,7 +172,6 @@ public class AgentServiceImpl
      * @return this agent's current Lamport timestamp
      */
     public long getLamportTime() {
-
         return lamportClock.getTime();
     }
 }

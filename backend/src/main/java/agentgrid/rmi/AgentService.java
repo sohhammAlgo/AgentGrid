@@ -19,8 +19,7 @@ public interface AgentService extends Remote {
      * proves multithreaded execution inside one agent,
      * as distinct from Experiment 1's single-subtask call path.
      */
-    List<Result> executeBatch(List<Subtask> subtasks)
-            throws RemoteException;
+    List<Result> executeBatch(List<Subtask> subtasks) throws RemoteException;
 
     boolean ping() throws RemoteException;
 

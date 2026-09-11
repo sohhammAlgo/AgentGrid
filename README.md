@@ -25,6 +25,13 @@ backend/src/main/java/agentgrid/
             RingElectionNode         — Chang-Roberts ring algorithm node
             ElectionServer           — bootstraps one election node
             ElectionDemo             — Experiment 4 leader election driver
+  replication/ BlackboardEntry        — serializable research finding data model
+               ConsistencyLevel       — STRONG vs EVENTUAL consistency enum
+               ReplicationService     — remote interface for replicated blackboard
+               ReplicationMetrics     — empirical latency and staleness tracker
+               ReplicatedBlackboardNode — node implementing strong sync & eventual LWW
+               ReplicationServer      — bootstraps one replicated blackboard node
+               ReplicationDemo        — Experiment 5 data consistency driver
   balancer/ LoadBalancer             — pluggable routing policy interface
             RoundRobinBalancer       — cycles nodes in fixed order
             WeightedBalancer         — smooth weighted round-robin by capacity
@@ -166,6 +173,29 @@ Ring            Node 4          11 msgs         30 ms
 ```
 
 The **Bully algorithm** achieves lower convergence latency (5 ms) via parallel broadcast to higher-ID nodes, whereas the **Ring algorithm** generates fewer total messages (11 msgs) by circulating candidate tokens sequentially along a logical ring topology.
+
+### Experiment 5 — data consistency & replication
+
+Demonstrates a shared Replicated Agent Blackboard across 3 nodes under runtime-selectable **Strong** and **Eventual** consistency protocols:
+
+```bash
+cd backend
+java -cp build/classes agentgrid.replication.ReplicationDemo
+```
+
+The demonstration client publishes subtask findings under both consistency modes, measures write response latency vs. read staleness, and verifies Last-Write-Wins (LWW) timestamp conflict resolution:
+
+```
+=================================================
+ EXPERIMENT 5 SUMMARY: CONSISTENCY MODEL COMPARISON
+=================================================
+Consistency Mode   Avg Write Latency    Stale Reads %      Convergence    
+STRONG             11.60 ms             0.0%               0 ms (Instant) 
+EVENTUAL           0.20 ms              66.7%              52 ms          
+=================================================
+```
+
+**Strong Consistency** guarantees zero stale reads across all agent nodes at the cost of higher synchronous write latency (11.60 ms), whereas **Eventual Consistency** provides near-instant write response times (0.20 ms) with background propagation converging across all nodes within ~50 ms.
 
 ### Experiment 6 — load balancing
 

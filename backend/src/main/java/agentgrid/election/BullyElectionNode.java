@@ -14,11 +14,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Implementation of Garcia-Molina's Bully Leader Election algorithm.
  *
- * Node IDs are distinct integers. Higher numbers indicate higher priority/capacity.
+ * Algorithm Overview:
+ * Node IDs are distinct integer values where higher numbers indicate higher capacity/priority.
  * When a node detects leader failure or starts an election:
- * 1. It sends an ELECTION message to all nodes with ID > myId.
- * 2. If any higher node answers with OK/ANSWER, this node steps back and waits for a COORDINATOR message.
- * 3. If no higher node answers within the timeout, this node declares itself leader and broadcasts COORDINATOR.
+ * 1. It sends an ELECTION message to all nodes with nodeId > myId.
+ * 2. If any higher node responds with ANSWER/OK, this node steps back and waits for a COORDINATOR message.
+ * 3. If no higher node responds within the timeout window, this node claims leadership and broadcasts a COORDINATOR message to all lower-ID nodes.
  */
 public class BullyElectionNode extends UnicastRemoteObject implements ElectionNodeService {
 
@@ -36,6 +37,14 @@ public class BullyElectionNode extends UnicastRemoteObject implements ElectionNo
 
     private final ExecutorService asyncExecutor = Executors.newCachedThreadPool();
 
+    /**
+     * Constructs a Bully Election Node.
+     *
+     * @param nodeId integer identifier of this node
+     * @param port RMI registry port
+     * @param nodePortMap registry mapping of all cluster node IDs to ports
+     * @param metrics empirical metrics collector (optional)
+     */
     public BullyElectionNode(int nodeId, int port, Map<Integer, Integer> nodePortMap, ElectionMetrics metrics)
             throws RemoteException {
         super();
@@ -83,16 +92,22 @@ public class BullyElectionNode extends UnicastRemoteObject implements ElectionNo
         }
     }
 
+    /**
+     * Initiates the election asynchronously on worker thread pool to avoid blocking RMI handlers.
+     */
     @Override
     public void startElection() {
         if (!alive.get()) {
             return;
         }
-
         asyncExecutor.submit(() -> runBullyElection());
     }
 
+    /**
+     * Core Bully election sequence.
+     */
     private void runBullyElection() {
+        // Prevent concurrent overlapping elections on the same node
         if (!alive.get() || !electionInProgress.compareAndSet(false, true)) {
             return;
         }
@@ -106,6 +121,7 @@ public class BullyElectionNode extends UnicastRemoteObject implements ElectionNo
         AtomicBoolean higherNodeAnswered = new AtomicBoolean(false);
         int higherCount = 0;
 
+        // Step 1: Send ELECTION message to all peers with higher node IDs
         for (Map.Entry<Integer, Integer> entry : nodePortMap.entrySet()) {
             int peerId = entry.getKey();
             int peerPort = entry.getValue();
@@ -124,23 +140,23 @@ public class BullyElectionNode extends UnicastRemoteObject implements ElectionNo
                         higherNodeAnswered.set(true);
                     }
                 } catch (Exception e) {
-                    // Higher node unreachable / down
+                    // Higher node is offline/unreachable
                 }
             }
         }
 
+        // Step 2: If no higher nodes exist or none responded, claim leadership
         if (higherCount == 0 || !higherNodeAnswered.get()) {
-            // No higher nodes answered — I am the leader!
             claimLeadership();
         } else {
-            // Wait briefly for a COORDINATOR message from a higher node
+            // Step 3: Wait for a higher node to send COORDINATOR
             try {
                 Thread.sleep(ELECTION_TIMEOUT_MS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
 
-            // If still no coordinator elected, retry election
+            // Retry election if no coordinator was established within timeout
             if (electionInProgress.get() && leaderId != nodeId) {
                 electionInProgress.set(false);
                 if (alive.get()) {
@@ -150,6 +166,9 @@ public class BullyElectionNode extends UnicastRemoteObject implements ElectionNo
         }
     }
 
+    /**
+     * Declares this node as the elected leader and broadcasts COORDINATOR to all active peers.
+     */
     private void claimLeadership() {
         if (!alive.get()) {
             electionInProgress.set(false);
@@ -163,7 +182,7 @@ public class BullyElectionNode extends UnicastRemoteObject implements ElectionNo
             metrics.recordCompletion(nodeId);
         }
 
-        // Broadcast COORDINATOR to all other nodes
+        // Broadcast COORDINATOR message to all lower-ID peer nodes
         for (Map.Entry<Integer, Integer> entry : nodePortMap.entrySet()) {
             int peerId = entry.getKey();
             int peerPort = entry.getValue();
@@ -180,7 +199,7 @@ public class BullyElectionNode extends UnicastRemoteObject implements ElectionNo
                         peer.receiveBullyCoordinator(nodeId);
                     }
                 } catch (Exception e) {
-                    // Peer down
+                    // Peer offline
                 }
             }
         }
@@ -196,8 +215,8 @@ public class BullyElectionNode extends UnicastRemoteObject implements ElectionNo
 
         System.out.println("[Bully Node " + nodeId + "] Received ELECTION from Node " + senderId);
 
+        // If this node has a higher ID than the sender, send ANSWER and start own election
         if (nodeId > senderId) {
-            // Answer back to the lower node
             try {
                 int senderPort = nodePortMap.get(senderId);
                 Registry registry = LocateRegistry.getRegistry("localhost", senderPort);
@@ -208,10 +227,9 @@ public class BullyElectionNode extends UnicastRemoteObject implements ElectionNo
                 }
                 sender.receiveBullyAnswer(nodeId);
             } catch (Exception e) {
-                // Ignore failure sending answer
+                // Ignore unreachable sender
             }
 
-            // Start own election if not already running
             startElection();
         }
     }
@@ -238,7 +256,7 @@ public class BullyElectionNode extends UnicastRemoteObject implements ElectionNo
 
     @Override
     public void receiveRingMessage(RingMessage message) {
-        // No-op for Bully mode
+        // No-op for Bully algorithm
     }
 
     public void shutdown() {

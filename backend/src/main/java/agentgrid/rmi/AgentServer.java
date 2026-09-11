@@ -6,7 +6,6 @@ import java.rmi.registry.Registry;
 public class AgentServer {
 
     public static void main(String[] args) {
-
         String agentId = args.length > 0 ? args[0] : "agent-1";
         int port = args.length > 1 ? Integer.parseInt(args[1]) : 1099;
         int poolSize = args.length > 2 ? Integer.parseInt(args[2]) : 4;
@@ -22,6 +21,5 @@ public class AgentServer {
             System.err.println("AgentServer failed to start: " + e.getMessage());
             e.printStackTrace();
         }
-
     }
 }
