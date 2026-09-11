@@ -3,3 +3,5 @@ docs
 # Build output
 build/
 *.class
+
+AgentGrid-Lite-PRD.md

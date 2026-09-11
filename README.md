@@ -18,11 +18,18 @@ backend/src/main/java/agentgrid/
             TimeServiceImpl          — drift-simulating clock, corrected by offset
             TimeServer               — bootstraps one time node
             BerkeleySyncCoordinator  — Experiment 3 physical sync driver
+  election/ ElectionNodeService      — remote interface for leader election RPCs
+            RingMessage              — serializable ring election message
+            ElectionMetrics          — empirical message and latency tracker
+            BullyElectionNode        — Garcia-Molina bully algorithm node
+            RingElectionNode         — Chang-Roberts ring algorithm node
+            ElectionServer           — bootstraps one election node
+            ElectionDemo             — Experiment 4 leader election driver
   balancer/ LoadBalancer             — pluggable routing policy interface
             RoundRobinBalancer       — cycles nodes in fixed order
             WeightedBalancer         — smooth weighted round-robin by capacity
             LeastLoadedBalancer      — real-time queue depth routing over RMI
-            LoadBalancerDemo         — Experiment 4 load balancing driver
+            LoadBalancerDemo         — Experiment 6 load balancing driver
 ```
 
 ## Requirements
@@ -137,7 +144,30 @@ All three converge on offset `+500 ms`, the mean of `+3000`, `-2000` and `+500`.
 Berkeley makes nodes agree with *each other*, not with true time — which is
 exactly what comparing cross-node timestamps requires.
 
-### Experiment 4 — load balancing
+### Experiment 4 — leader election
+
+Demonstrates Bully and Ring leader election algorithms on a cluster of 5 nodes under crash-stop failover conditions:
+
+```bash
+cd backend
+java -cp build/classes agentgrid.election.ElectionDemo
+```
+
+The client bootstraps 5 election nodes, elects an initial leader (Node 5), simulates a crash-stop failure of Node 5, and triggers failover election under both algorithms:
+
+```
+=================================================
+ EXPERIMENT 4 SUMMARY: BULLY VS RING ELECTION
+=================================================
+Algorithm       Elected Leader  Message Count   Convergence Time
+Bully           Node 4          15 msgs         5 ms           
+Ring            Node 4          11 msgs         30 ms          
+=================================================
+```
+
+The **Bully algorithm** achieves lower convergence latency (5 ms) via parallel broadcast to higher-ID nodes, whereas the **Ring algorithm** generates fewer total messages (11 msgs) by circulating candidate tokens sequentially along a logical ring topology.
+
+### Experiment 6 — load balancing
 
 Start three agent nodes with different pool sizes simulating heterogeneous hardware capacities (weak, medium, strong), each in its own terminal:
 
