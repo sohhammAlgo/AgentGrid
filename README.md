@@ -45,11 +45,22 @@ JDK 17 or newer (`javac`, `java` on your `PATH`). No external dependencies.
 
 ## Build
 
+On Linux/macOS:
 ```bash
 ./backend/build.sh
 ```
 
+On Windows (CMD or PowerShell):
+```cmd
+.\backend\build.bat
+```
+or
+```powershell
+.\backend\build.ps1
+```
+
 Output lands in `backend/build/classes` (git-ignored).
+
 
 ## Run
 

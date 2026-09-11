@@ -86,7 +86,9 @@ public class ElectionDemo {
             try {
                 bullyRegistries.get(i - 1).unbind("election-node-" + i);
                 UnicastRemoteObject.unexportObject(bullyRegistries.get(i - 1), true);
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                System.err.println("Warning during Bully registry cleanup: " + e.getMessage());
+            }
         }
         Thread.sleep(500);
 
@@ -142,7 +144,9 @@ public class ElectionDemo {
             try {
                 ringRegistries.get(i - 1).unbind("election-node-" + i);
                 UnicastRemoteObject.unexportObject(ringRegistries.get(i - 1), true);
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                System.err.println("Warning during Ring registry cleanup: " + e.getMessage());
+            }
         }
 
         // ==========================================
