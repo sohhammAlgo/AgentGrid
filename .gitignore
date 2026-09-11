@@ -5,3 +5,5 @@ build/
 *.class
 
 AgentGrid-Lite-PRD.md
+
+.gitattributes
