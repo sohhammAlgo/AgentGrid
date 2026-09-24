@@ -71,7 +71,7 @@ public class LoadBalancerDemo {
 
             futures.add(clientPool.submit(() -> {
                 try {
-                    chosen.execute(subtask);
+                    chosen.executeBatch(List.of(subtask));
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }

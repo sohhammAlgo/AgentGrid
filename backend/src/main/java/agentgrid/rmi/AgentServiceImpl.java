@@ -90,7 +90,14 @@ public class AgentServiceImpl extends UnicastRemoteObject implements AgentServic
          * Submit every subtask to the thread pool.
          */
         for (Subtask subtask : subtasks) {
-            Callable<Result> job = () -> execute(subtask);
+             queueDepth.incrementAndGet(); // counted while waiting in the pool queue
+ Callable<Result> job = () -> {
+ try {
+ return execute(subtask);
+ } finally {
+ queueDepth.decrementAndGet();
+ }
+ };
             futures.add(threadPool.submit(job));
         }
 
