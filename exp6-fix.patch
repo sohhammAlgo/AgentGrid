@@ -1,0 +1,33 @@
+
+diff --git a/backend/src/main/java/agentgrid/balancer/LoadBalancerDemo.java b/backend/src/main/java/agentgrid/balancer/LoadBalancerDemo.java
+index 643bcd7..858f185 100644
+--- a/backend/src/main/java/agentgrid/balancer/LoadBalancerDemo.java
++++ b/backend/src/main/java/agentgrid/balancer/LoadBalancerDemo.java
+@@ -71,7 +71,7 @@ public class LoadBalancerDemo {
+ 
+             futures.add(clientPool.submit(() -> {
+                 try {
+- chosen.execute(subtask);
++ chosen.executeBatch(List.of(subtask));
+                 } catch (Exception e) {
+                     throw new RuntimeException(e);
+                 }
+diff --git a/backend/src/main/java/agentgrid/rmi/AgentServiceImpl.java b/backend/src/main/java/agentgrid/rmi/AgentServiceImpl.java
+index 3e3a8f8..dace4f7 100644
+--- a/backend/src/main/java/agentgrid/rmi/AgentServiceImpl.java
++++ b/backend/src/main/java/agentgrid/rmi/AgentServiceImpl.java
+@@ -90,7 +90,14 @@ public class AgentServiceImpl extends UnicastRemoteObject implements AgentServic
+          * Submit every subtask to the thread pool.
+          */
+         for (Subtask subtask : subtasks) {
+- Callable<Result> job = () -> execute(subtask);
++ queueDepth.incrementAndGet(); // counted while waiting in the pool queue
++ Callable<Result> job = () -> {
++ try {
++ return execute(subtask);
++ } finally {
++ queueDepth.decrementAndGet();
++ }
++ };
+             futures.add(threadPool.submit(job));
+         }
