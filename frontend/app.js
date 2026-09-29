@@ -7,12 +7,31 @@
     sortOrder: 'lamport', // 'lamport' | 'nodeWallMs'
     activeModule: null,
     modules: [],
-    clusterListeners: []
+    clusterListeners: [],
+    election: null,
+    electionListeners: []
   };
+
+  async function postJson(url, body, failMsg) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {})
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(err.error || failMsg);
+    }
+    return res.json();
+  }
 
   window.AgentGrid = {
     getState: () => state,
     onClusterUpdate: (cb) => state.clusterListeners.push(cb),
+    onElectionUpdate: (cb) => state.electionListeners.push(cb),
+    setElectionAlgorithm: (name) => postJson('/api/election/algorithm', { name }, 'Algorithm change failed'),
+    startElection: (nodeId) => postJson('/api/election/start', { node: nodeId }, 'Election start failed'),
+    killNode: (nodeId) => postJson(`/api/nodes/${nodeId}/kill`, {}, 'Kill failed'),
     invokeRmi: async (nodeId, type, count) => {
       const res = await fetch('/api/rmi/invoke', {
         method: 'POST',
@@ -82,6 +101,14 @@
         }
       });
 
+      es.addEventListener('election', (e) => {
+        try {
+          updateElection(JSON.parse(e.data));
+        } catch (err) {
+          console.error('Failed to parse election SSE:', err);
+        }
+      });
+
       es.addEventListener('event', (e) => {
         try {
           const ev = JSON.parse(e.data);
@@ -105,6 +132,10 @@
           const nodes = await res.json();
           updateCluster(nodes);
         }
+        if (state.modules.some(m => m.id === 'exp4')) {
+          const er = await fetch('/api/election');
+          if (er.ok) updateElection(await er.json());
+        }
       } catch (ignored) {}
     }, 2500);
   }
@@ -114,6 +145,14 @@
     renderClusterGrid(nodes);
     state.clusterListeners.forEach(cb => {
       try { cb(nodes); } catch (e) { console.error(e); }
+    });
+  }
+
+  function updateElection(election) {
+    state.election = election;
+    renderClusterGrid(state.nodes);
+    state.electionListeners.forEach(cb => {
+      try { cb(election); } catch (e) { console.error(e); }
     });
   }
 
@@ -138,15 +177,21 @@
       const pct = Math.min(100, Math.round((depth / pool) * 100));
       const driftSign = (n.clockOffsetMs !== null && n.clockOffsetMs >= 0) ? '+' : '';
       const isHot = depth > pool;
+      const isBackup = isUp && state.election && state.election.backupId === n.id;
+      const roleBadges = (n.isLeader ? '<span class="badge leader">LEADER</span>' : '')
+        + (isBackup ? '<span class="badge backup">BACKUP</span>' : '');
 
       return `
-        <div class="node-card ${isUp ? '' : 'offline'}" id="node-card-${n.id}">
+        <div class="node-card ${isUp ? '' : 'offline'} ${n.isLeader ? 'is-leader' : ''}" id="node-card-${n.id}">
           <div class="node-card-header">
             <div class="node-title-wrap">
               <span class="node-title">Node ${n.id}</span>
               <span class="node-port">port :${n.port}</span>
             </div>
-            <span class="badge ${isUp ? 'online' : 'offline'}">${isUp ? 'ONLINE' : 'OFFLINE'}</span>
+            <div class="node-badges">
+              ${roleBadges}
+              <span class="badge ${isUp ? 'online' : 'offline'}">${isUp ? 'ONLINE' : 'OFFLINE'}</span>
+            </div>
           </div>
 
           <div class="pool-metric">
@@ -167,6 +212,10 @@
             <div class="stat-item">
               <span class="stat-label">Lamport</span>
               <span class="stat-val">${n.lamport === null ? '—' : n.lamport}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">leader view</span>
+              <span class="stat-val">${n.leaderView === null || n.leaderView === undefined ? '—' : 'Node ' + n.leaderView}</span>
             </div>
           </div>
 

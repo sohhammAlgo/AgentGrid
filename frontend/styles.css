@@ -558,6 +558,80 @@ body {
 .type-NODE_DOWN_DETECTED { background: rgba(244, 63, 94, 0.15); color: #f43f5e; }
 .type-CLOCK_DRIFT_SET { background: rgba(6, 182, 212, 0.2); color: #22d3ee; }
 .type-CLOCK_SYNC { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+.type-ELECTION_STARTED { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.type-ELECTION_MSG { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; }
+.type-LEADER_ACCEPTED { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.type-LEADER_LOST { background: rgba(244, 63, 94, 0.2); color: #fb7185; }
+.type-HEARTBEAT_MISS { background: rgba(244, 63, 94, 0.1); color: #fda4af; }
+.type-ELECTION_ALGORITHM_SET { background: rgba(6, 182, 212, 0.2); color: #22d3ee; }
+
+/* Leader election */
+.node-badges {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.badge.leader {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.badge.backup {
+  background: rgba(6, 182, 212, 0.15);
+  color: #22d3ee;
+  border-color: rgba(6, 182, 212, 0.35);
+}
+
+.node-card.is-leader {
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.exp4-box {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.exp4-box h4 {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.exp4-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.exp4-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.exp4-views {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.exp4-table-wrap {
+  margin-top: 12px;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
 
 .mono-cell {
   font-family: var(--font-mono);

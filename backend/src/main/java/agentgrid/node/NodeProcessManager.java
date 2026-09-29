@@ -15,6 +15,12 @@ import java.util.concurrent.TimeUnit;
 public class NodeProcessManager {
 
     private final Map<Integer, Process> processes = new ConcurrentHashMap<>();
+    private volatile String electionAlgorithm = "BULLY";
+
+    /** Election algorithm passed to nodes started from now on. */
+    public void setElectionAlgorithm(String algorithm) {
+        this.electionAlgorithm = algorithm;
+    }
 
     public synchronized Process start(int nodeId) throws IOException {
         // Kill existing process if currently tracked and alive
@@ -33,6 +39,7 @@ public class NodeProcessManager {
                 javaBin.toString(),
                 "-cp",
                 classpath,
+                "-Dagentgrid.election.algorithm=" + electionAlgorithm,
                 "agentgrid.node.NodeMain",
                 String.valueOf(nodeId)
         );

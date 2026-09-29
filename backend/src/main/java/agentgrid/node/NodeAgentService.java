@@ -37,15 +37,25 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
     private final String agentId;
     private final int poolSize;
     private final transient AtomicInteger queueDepth = new AtomicInteger(0);
-    private final transient LamportClock lamportClock = new LamportClock();
+    private final transient LamportClock lamportClock;
     private final transient ExecutorService threadPool;
+    private transient volatile Runnable syncListener;
 
     public NodeAgentService(String agentId) throws RemoteException {
         this(agentId, DEFAULT_POOL_SIZE);
     }
 
     public NodeAgentService(String agentId, int poolSize) throws RemoteException {
+        this(agentId, poolSize, new LamportClock());
+    }
+
+    /**
+     * @param lamportClock the node's single Lamport clock, shared with its telemetry buffer
+     *                     and election service
+     */
+    public NodeAgentService(String agentId, int poolSize, LamportClock lamportClock) throws RemoteException {
         super();
+        this.lamportClock = lamportClock;
         if (agentId == null || agentId.isBlank()) {
             throw new IllegalArgumentException("agentId must be a non-empty string");
         }
@@ -237,11 +247,22 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
         return 150;
     }
 
+    /** Runs after every sync() call; the failure detector uses the first one as its boot gate. */
+    public void setSyncListener(Runnable listener) {
+        this.syncListener = listener;
+    }
+
     @Override
     public long sync(long controlLamport) throws RemoteException {
+        long time;
         synchronized (lamportClock) {
-            return lamportClock.update(controlLamport);
+            time = lamportClock.update(controlLamport);
         }
+        Runnable listener = syncListener;
+        if (listener != null) {
+            listener.run();
+        }
+        return time;
     }
 }
 

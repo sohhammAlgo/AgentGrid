@@ -119,6 +119,9 @@ public class ControlPlaneMain {
         server.createContext("/api/rmi/invoke", this::handleRmiInvoke);
         server.createContext("/api/clock/drift", this::handleClockDrift);
         server.createContext("/api/clock/sync", this::handleClockSync);
+        server.createContext("/api/election", this::handleElection);
+        server.createContext("/api/election/algorithm", this::handleElectionAlgorithm);
+        server.createContext("/api/election/start", this::handleElectionStart);
         server.createContext("/", this::handleStatic);
     }
 
@@ -134,7 +137,8 @@ public class ControlPlaneMain {
         List<Map<String, String>> modules = List.of(
                 Map.of("id", "exp1", "title", "RMI"),
                 Map.of("id", "exp2", "title", "Threads"),
-                Map.of("id", "exp3", "title", "Clocks")
+                Map.of("id", "exp3", "title", "Clocks"),
+                Map.of("id", "exp4", "title", "Election")
         );
         sendJsonResponse(exchange, 200, modules);
     }
@@ -201,8 +205,9 @@ public class ControlPlaneMain {
 
         try {
             while (true) {
-                // Send periodic cluster snapshots
-                String snapJson = "event: cluster\ndata: " + JsonUtil.toJson(monitor.getSnapshotAsMaps()) + "\n\n";
+                // Send periodic cluster and election snapshots
+                String snapJson = "event: cluster\ndata: " + JsonUtil.toJson(monitor.getSnapshotAsMaps()) + "\n\n"
+                        + "event: election\ndata: " + JsonUtil.toJson(monitor.getElectionTracker().toMap()) + "\n\n";
                 synchronized (os) {
                     os.write(snapJson.getBytes(StandardCharsets.UTF_8));
                     os.flush();
@@ -264,9 +269,14 @@ public class ControlPlaneMain {
         if (!validatePostHeaders(exchange)) return;
 
         if (action.equals("kill")) {
-            boolean killed = processManager.kill(nodeId);
-            eventLog.record("NODE_KILLED", nodeId, "Node " + nodeId + " process terminated via API", System.currentTimeMillis());
+            // Record the kill and push its Lamport time to every UP node BEFORE the process
+            // dies, so every HEARTBEAT_MISS and election event it causes is ordered after it.
+            Process target = processManager.getProcess(nodeId);
+            eventLog.record("NODE_KILLED", nodeId, "Node " + nodeId + " process terminated via API"
+                    + (target != null ? " (pid=" + target.pid() + ")" : ""), System.currentTimeMillis());
             syncAllUpNodesLamport();
+            boolean killed = processManager.kill(nodeId);
+            monitor.expectElectionActivity(10000);
             monitor.pollNode(nodeId);
             sendJsonResponse(exchange, 200, Map.of("success", true, "node", nodeId, "status", "killed", "previouslyAlive", killed));
         } else if (action.equals("restart")) {
@@ -274,6 +284,7 @@ public class ControlPlaneMain {
                 Process p = processManager.restart(nodeId);
                 eventLog.record("NODE_RESTARTED", nodeId, "Node " + nodeId + " restarted (pid=" + p.pid() + ")", System.currentTimeMillis());
                 syncAllUpNodesLamport();
+                monitor.expectElectionActivity(10000);
                 try {
                     Thread.sleep(600);
                 } catch (InterruptedException ignored) {}
@@ -519,16 +530,125 @@ public class ControlPlaneMain {
     }
 
     private void syncAllUpNodesLamport() {
-        long currentLamport = eventLog.getLamportClock().getTime();
+        monitor.syncAllUp();
+    }
+
+    // =========================================================================
+    // EXPERIMENT 4: LEADER ELECTION
+    // =========================================================================
+
+    private void handleElection(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestURI().getPath().equals("/api/election")) {
+            sendError(exchange, 404, "Unknown election endpoint: " + exchange.getRequestURI().getPath());
+            return;
+        }
+        if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        sendJsonResponse(exchange, 200, monitor.getElectionTracker().toMap());
+    }
+
+    private void handleElectionAlgorithm(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        if (!validatePostHeaders(exchange)) return;
+
+        Map<String, Object> req = readJsonBody(exchange);
+        if (req == null) return;
+        String name = req.get("name") == null ? "" : String.valueOf(req.get("name")).trim().toUpperCase();
+        if (!name.equals("BULLY") && !name.equals("RING")) {
+            sendError(exchange, 400, "Field 'name' must be \"BULLY\" or \"RING\"");
+            return;
+        }
+
+        monitor.setDesiredAlgorithm(name);
+        processManager.setElectionAlgorithm(name);
+
+        List<Integer> applied = new ArrayList<>();
+        List<Integer> failed = new ArrayList<>();
         for (ClusterMonitor.NodeStatus status : monitor.getSnapshot()) {
-            if (status.isUp()) {
-                try {
-                    Registry registry = LocateRegistry.getRegistry("localhost", status.getPort());
-                    NodeAgent agent = (NodeAgent) registry.lookup("agent");
-                    agent.sync(currentLamport);
-                } catch (Exception ignored) {
-                }
+            if (!status.isUp()) {
+                continue;
             }
+            try {
+                agentgrid.node.NodeElection election = monitor.electionOf(status.getId());
+                monitor.call(() -> {
+                    election.setAlgorithm(name);
+                    return null;
+                });
+                applied.add(status.getId());
+            } catch (Exception e) {
+                failed.add(status.getId());
+            }
+        }
+        eventLog.record("ELECTION_ALGORITHM_SET", 0,
+                "Election algorithm set to " + name + " on nodes " + applied
+                        + (failed.isEmpty() ? "" : " (failed: " + failed + ")"),
+                System.currentTimeMillis());
+        monitor.pollAll();
+
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("algorithm", name);
+        resp.put("applied", applied);
+        resp.put("failed", failed);
+        sendJsonResponse(exchange, 200, resp);
+    }
+
+    private void handleElectionStart(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        if (!validatePostHeaders(exchange)) return;
+
+        Map<String, Object> req = readJsonBody(exchange);
+        if (req == null) return;
+        int nodeId;
+        try {
+            nodeId = ((Number) req.get("node")).intValue();
+        } catch (Exception e) {
+            sendError(exchange, 400, "Field 'node' must be an integer");
+            return;
+        }
+        if (!config.getNodeIds().contains(nodeId)) {
+            sendError(exchange, 400, "Unknown node ID: " + nodeId);
+            return;
+        }
+
+        try {
+            agentgrid.node.NodeElection election = monitor.electionOf(nodeId);
+            monitor.call(() -> {
+                election.startElection();
+                return null;
+            });
+        } catch (Exception e) {
+            sendError(exchange, 503, "Node " + nodeId + " is unreachable: " + e.getMessage());
+            return;
+        }
+        monitor.expectElectionActivity(10000);
+
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("success", true);
+        resp.put("node", nodeId);
+        resp.put("requestedTrueMs", System.currentTimeMillis());
+        sendJsonResponse(exchange, 200, resp);
+    }
+
+    /** Parses the JSON request body; on failure sends 400 and returns null. */
+    private Map<String, Object> readJsonBody(HttpExchange exchange) throws IOException {
+        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        try {
+            Map<String, Object> req = JsonUtil.parseObject(body);
+            if (req == null) {
+                throw new IllegalArgumentException("empty body");
+            }
+            return req;
+        } catch (Exception e) {
+            sendError(exchange, 400, "Malformed JSON request body: " + e.getMessage());
+            return null;
         }
     }
 

@@ -1,8 +1,10 @@
 package agentgrid.control;
 
 import agentgrid.clock.LamportClock;
+import agentgrid.node.NodeEvent;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,6 +16,9 @@ import java.util.function.Consumer;
 /**
  * Thread-safe fixed-capacity (500) ring buffer for cluster control-plane events.
  * Manages the control-plane's Lamport clock and dispatches event notifications.
+ *
+ * Holds two kinds of events: those the control plane records itself (stamped by its own
+ * clock) and those pulled from node telemetry (which keep the node's own Lamport time).
  */
 public class EventLog {
 
@@ -24,14 +29,25 @@ public class EventLog {
         private final String details;
         private final long lamport;
         private final long nodeWallMs;
+        private final long trueMs;
+        private final Long nodeSeq;
+        private final Map<String, Object> fields;
 
         public Event(long seq, String type, int node, String details, long lamport, long nodeWallMs) {
+            this(seq, type, node, details, lamport, nodeWallMs, System.currentTimeMillis(), null, null);
+        }
+
+        public Event(long seq, String type, int node, String details, long lamport, long nodeWallMs,
+                     long trueMs, Long nodeSeq, Map<String, Object> fields) {
             this.seq = seq;
             this.type = type;
             this.node = node;
             this.details = details;
             this.lamport = lamport;
             this.nodeWallMs = nodeWallMs;
+            this.trueMs = trueMs;
+            this.nodeSeq = nodeSeq;
+            this.fields = fields == null ? Collections.emptyMap() : new LinkedHashMap<>(fields);
         }
 
         public long getSeq() {
@@ -58,6 +74,18 @@ public class EventLog {
             return nodeWallMs;
         }
 
+        public long getTrueMs() {
+            return trueMs;
+        }
+
+        public Long getNodeSeq() {
+            return nodeSeq;
+        }
+
+        public Map<String, Object> getFields() {
+            return fields;
+        }
+
         public Map<String, Object> toMap() {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("seq", seq);
@@ -66,6 +94,13 @@ public class EventLog {
             map.put("details", details);
             map.put("lamport", lamport);
             map.put("nodeWallMs", nodeWallMs);
+            map.put("trueMs", trueMs);
+            if (nodeSeq != null) {
+                map.put("nodeSeq", nodeSeq);
+            }
+            if (!fields.isEmpty()) {
+                map.put("fields", fields);
+            }
             return map;
         }
     }
@@ -107,6 +142,34 @@ public class EventLog {
         buffer[(int) ((seq - 1) % CAPACITY)] = event;
         notifyListeners(event);
         return event;
+    }
+
+    /**
+     * Merges events pulled from node telemetry, ordered by (lamport, node, node seq).
+     * Each keeps its node's Lamport time. Pulling is a receive for the control plane, so
+     * its own clock moves past every merged event; control-plane events recorded later
+     * (e.g. NODE_KILLED) therefore carry a higher Lamport time than anything already seen.
+     */
+    public List<Event> mergeNodeEvents(List<NodeEvent> pulled) {
+        List<NodeEvent> sorted = new ArrayList<>(pulled);
+        sorted.sort(Comparator.comparingLong(NodeEvent::getLamport)
+                .thenComparingInt(NodeEvent::getNode)
+                .thenComparingLong(NodeEvent::getSeq));
+        List<Event> merged = new ArrayList<>(sorted.size());
+        synchronized (this) {
+            for (NodeEvent ne : sorted) {
+                lamportClock.update(ne.getLamport());
+                long seq = seqGenerator.incrementAndGet();
+                Event event = new Event(seq, ne.getType(), ne.getNode(), ne.getDetails(), ne.getLamport(),
+                        ne.getNodeWallMs(), ne.getTrueMs(), ne.getSeq(), ne.getFields());
+                buffer[(int) ((seq - 1) % CAPACITY)] = event;
+                merged.add(event);
+            }
+        }
+        for (Event e : merged) {
+            notifyListeners(e);
+        }
+        return merged;
     }
 
     private void notifyListeners(Event event) {
