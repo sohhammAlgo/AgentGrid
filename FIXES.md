@@ -158,3 +158,57 @@ The "before" numbers for D, E and F below also come from `agentgrid.node.Electio
     - Bully: **1189–1415 ms, median 1281 ms**. Ring: **1077–1350 ms, median 1315 ms** (same detector).
     - All 10 failovers then elected node 4 without manual action.
     - The first miss appears about 700 ms after the kill, which includes up to one 500 ms ping interval plus the failed call itself. The second miss follows about 200 ms later, because the fixed-rate ping schedule runs a late tick immediately.
+
+---
+
+## Phase 4: Orchestrator on the Leader
+
+"Before" and "after" numbers for G and H come from `agentgrid.orchestrator.BalancerBaselineProbe`. It runs the same pipeline as the leader's orchestrator (same `JobRunner`, same query, 42 subtasks per job, 150 ms simulated work per subtask) against the live 5-node cluster, with pools 2/4/4/6/6.
+
+### Fix G: LeastLoaded Ignores Node Capacity
+
+- **Bug Description**:
+  The submitted `LeastLoadedBalancer.select()` routes to the node with the smallest raw `getQueueDepth()`. Three queued subtasks mean something different on a 2-thread node than on a 6-thread node, so the policy cannot favour stronger nodes. With pools 2/4/4/6/6 it behaved like a noisy round robin.
+  - In the integrated cluster a second effect shows up. A dispatch reaches the node's queue a moment after `select()` returns, so a burst of selections reads stale depths and piles onto one node.
+  - The submitted `LoadBalancerDemo` has the same race: it selects in a loop while the submissions run asynchronously.
+
+- **Location in Submitted Code**:
+  [`backend/src/main/java/agentgrid/balancer/LeastLoadedBalancer.java`](backend/src/main/java/agentgrid/balancer/LeastLoadedBalancer.java) (`select`, raw `getQueueDepth()` comparison).
+
+- **What Changed in Integrated Version**:
+  The submitted class is used unchanged; the fix is in the wrapper. [`WorkerNode`](backend/src/main/java/agentgrid/orchestrator/WorkerNode.java) presents each live node to the submitted balancers as an `AgentService`.
+  - For LEAST_LOADED its `getQueueDepth()` returns `max(live queue depth, subtasks in flight to that node) * 1000 / poolSize`.
+  - The ×1000 is there because the submitted class compares ints.
+  - [`BalancingPolicy`](backend/src/main/java/agentgrid/orchestrator/BalancingPolicy.java) builds the three submitted balancers over these views.
+
+- **Before/After Measurement** (3 runs each, makespan of the whole job):
+
+  | LEAST_LOADED load view | Makespans (ms) | Median | Subtasks per node, worst run |
+  |---|---|---|---|
+  | ROUND_ROBIN (reference) | 1051, 1006, 957 | 1006 | {1=10, 2=8, 3=8, 4=8, 5=8} |
+  | Raw depth (submitted) | 961, 1101, 1294 | **1101** | {1=6, 2=7, 3=20, 4=8, 5=1}; node 3 peak queue 10 |
+  | Depth / pool only | 2205, 861, 989 | 989 | {1=24, 2=5, 3=7, 4=4, 5=2}; node 1 (pool 2) peak queue 20 |
+  | Depth / pool + in flight (fix G) | 697, 675, 685 | **685** | {1=6, 2=8, 3=8, 4=10, 5=10} every run; peak queue = pool size |
+
+  - With the submitted raw view, LeastLoaded was slower than round robin (median 1101 vs 1006 ms).
+  - Normalising alone did not fix it: stale reads still piled up to 24 subtasks on the 2-thread node.
+  - With both parts of the fix, the median dropped to 685 ms and the distribution was identical in all 3 runs.
+
+### Fix H: Loop Index Used as the Subtask Timestamp
+
+- **Bug Description**:
+  The submitted `LoadBalancerDemo.buildBatch()` creates each subtask with `lamportTimestamp = i`, the loop index, and ignores the timestamps on the returned Results. (Our Phase 1 `BugVerification` driver copied the pattern.) The timestamp a node receives is then unrelated to anything that happened before it, so there is no causal chain across nodes. A subtask built from earlier results can carry a smaller timestamp than those results.
+
+- **Location in Submitted Code**:
+  [`backend/src/main/java/agentgrid/balancer/LoadBalancerDemo.java`](backend/src/main/java/agentgrid/balancer/LoadBalancerDemo.java) (`buildBatch`: `new Subtask(..., i)`).
+
+- **What Changed in Integrated Version**:
+  - **Dispatch:** [`JobRunner`](backend/src/main/java/agentgrid/orchestrator/JobRunner.java) records every dispatch as a `SUBTASK_DISPATCHED` event, which ticks the leader's Lamport clock, and the subtask carries that event's time.
+  - **Worker:** [`NodeAgentService`](backend/src/main/java/agentgrid/node/NodeAgentService.java) applies the receive rule, does the work, then ticks again for the send, so the Result's timestamp exceeds the dispatch's.
+  - **Leader:** it applies the receive rule to that timestamp before recording `SUBTASK_COMPLETED`.
+  - A stage's subtasks are dispatched only after all results of the previous stage have been received, so they carry larger timestamps than those results.
+
+- **Before/After Measurement** (one WEIGHTED job each; 22 subtasks depend on an earlier stage: RANK, 20 SUMMARIZE, SYNTHESIZE):
+  - *Before (loop index, Result timestamps ignored)*: **22 of 22** dependent subtasks carried a timestamp no greater than a result they depend on. For example, RANK carried ts=0 while a RETRIEVE result it depends on had ts=2158.
+  - *After (Lamport chain)*: **0 of 22**.
+  - In the live cluster, JobVerifier J5 checks every subtask for dispatch < result < completion. It also checks that each stage's first dispatch follows the previous stage's last completion, and that each node's own events strictly increase.

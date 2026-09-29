@@ -1,0 +1,2 @@
+Consensus and Paxos
+Consensus is the problem of getting several processes to agree on one value even when some of them fail. Paxos reaches agreement with a proposer, acceptors and learners, and needs a majority of acceptors to make progress. No deterministic algorithm can guarantee consensus in a fully asynchronous system with even one crash failure. Practical systems use timeouts and leaders to make progress in the common case.

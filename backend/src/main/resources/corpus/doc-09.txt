@@ -1,0 +1,2 @@
+Failure Detectors
+A failure detector decides when a remote process should be considered crashed. Because a slow process looks like a dead one, every practical detector trades detection speed against false suspicions. Timeouts that are too short cause needless elections, while long timeouts leave the system without a leader for longer. Failure detectors are the input that triggers leader election and failover.

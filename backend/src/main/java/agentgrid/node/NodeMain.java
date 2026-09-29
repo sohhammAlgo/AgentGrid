@@ -2,6 +2,9 @@ package agentgrid.node;
 
 import agentgrid.clock.LamportClock;
 import agentgrid.clock.TimeServiceImpl;
+import agentgrid.orchestrator.Corpus;
+import agentgrid.orchestrator.Orchestrator;
+import agentgrid.orchestrator.StrategyRegistry;
 import agentgrid.replication.ReplicatedBlackboardNode;
 
 import java.rmi.registry.LocateRegistry;
@@ -18,8 +21,12 @@ import java.rmi.registry.Registry;
  */
 public class NodeMain {
 
-    /** Bounds how long a node's outgoing RMI call waits for a reply once connected. */
-    private static final String RMI_RESPONSE_TIMEOUT_MS = "2000";
+    /**
+     * Bounds how long a node's outgoing RMI call waits for a reply once connected. Election
+     * handlers return at once, but the leader's orchestrator blocks in execute() while a
+     * subtask waits in a worker's queue, so this must exceed a subtask's queue wait plus work.
+     */
+    private static final String RMI_RESPONSE_TIMEOUT_MS = "10000";
 
     // Retain strong references to remote objects to prevent distributed garbage collection
     private static NodeAgentService agentService;
@@ -27,6 +34,7 @@ public class NodeMain {
     private static ElectionNode electionNode;
     private static FailureDetector failureDetector;
     private static NodeEventBuffer telemetry;
+    private static Orchestrator orchestrator;
     private static ReplicatedBlackboardNode blackboardNode;
     private static Registry registry;
 
@@ -63,7 +71,8 @@ public class NodeMain {
 
             LamportClock lamportClock = new LamportClock();
 
-            agentService = new NodeAgentService("agent-" + nodeId, poolSize, lamportClock);
+            agentService = new NodeAgentService("agent-" + nodeId, poolSize, lamportClock,
+                    StrategyRegistry.defaults(Corpus.load()), config.getSimulatedWorkMs());
             registry.rebind("agent", agentService);
 
             timeService = new TimeServiceImpl("node-" + nodeId, driftMs);
@@ -74,6 +83,11 @@ public class NodeMain {
 
             LeaderLifecycleRegistry lifecycle = new LeaderLifecycleRegistry();
             lifecycle.register(LeaderLifecycleRegistry.eventEmitter(telemetry));
+
+            // Every node hosts an orchestrator; it runs only while this node is the leader.
+            orchestrator = new Orchestrator(nodeId, config, telemetry);
+            registry.rebind("orchestrator", orchestrator);
+            lifecycle.register(orchestrator);
 
             electionNode = new ElectionNode(nodeId, config.getNodePortMap(), algorithm, telemetry, lifecycle);
             registry.rebind("election-node-" + nodeId, electionNode);
@@ -106,7 +120,7 @@ public class NodeMain {
                     + ", drift=" + (driftMs >= 0 ? "+" : "") + driftMs + "ms"
                     + ", election=" + algorithm + ")");
             System.out.println("[Node " + nodeId + "] Registered services: 'agent', 'time', 'election-node-"
-                    + nodeId + "', 'blackboard-node-node-" + nodeId + "', 'telemetry'");
+                    + nodeId + "', 'blackboard-node-node-" + nodeId + "', 'telemetry', 'orchestrator'");
 
             // Keep process running indefinitely until terminated
             synchronized (NodeMain.class) {

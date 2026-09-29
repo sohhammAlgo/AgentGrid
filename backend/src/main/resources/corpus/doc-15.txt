@@ -1,0 +1,2 @@
+Quorum Systems
+A quorum system requires a read to contact R replicas and a write to contact W replicas out of N. If R plus W is greater than N, every read overlaps with the latest write. Choosing small W makes writes fast and small R makes reads fast. Quorums let a replicated store tolerate failed replicas as long as enough remain reachable.

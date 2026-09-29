@@ -1,0 +1,2 @@
+Checkpointing and Recovery
+Checkpointing saves the state of a computation so it can restart after a failure without starting over. Coordinated checkpoints capture a consistent global state across processes. Recovery rolls back to the latest checkpoint and replays logged messages. Frequent checkpoints cost time during normal operation but reduce lost work after a crash.

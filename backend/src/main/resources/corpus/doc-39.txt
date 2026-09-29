@@ -1,0 +1,2 @@
+Tracing and Observability
+Distributed tracing follows a request as it crosses services by attaching a trace identifier to every message. Each service records spans with start and end times. Logs from different machines must be ordered carefully because their clocks drift. Logical timestamps give a causal order that wall clock timestamps cannot guarantee.

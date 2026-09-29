@@ -1,0 +1,2 @@
+Lamport Clocks
+A Lamport clock is a counter that each process increments before every local event and every message it sends. A message carries the sender's counter, and the receiver sets its own counter to the maximum of both plus one. If one event causally precedes another, its Lamport timestamp is smaller. The converse does not hold, so equal or smaller timestamps do not prove causality.

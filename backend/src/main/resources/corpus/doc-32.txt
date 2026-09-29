@@ -1,0 +1,2 @@
+Distributed Mutual Exclusion
+Distributed mutual exclusion ensures that at most one process enters a critical section at a time without shared memory. The Ricart Agrawala algorithm asks every other process for permission using Lamport timestamps to order requests. A token based algorithm passes a single token and lets only its holder enter. Both must handle failures of the coordinator or token holder.

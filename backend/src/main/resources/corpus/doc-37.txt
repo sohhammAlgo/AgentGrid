@@ -1,0 +1,2 @@
+RPC Semantics
+A remote procedure call can have at most once, at least once or exactly once semantics. At most once never repeats an operation but may lose it. At least once retries until it gets a reply and may execute twice. Exactly once needs duplicate detection and durable state on the server.

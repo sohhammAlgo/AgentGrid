@@ -55,12 +55,30 @@ public class ClusterConfig {
         }
     }
 
+    /** Default per-subtask simulated work delay; see getSimulatedWorkMs(). */
+    public static final long DEFAULT_SIMULATED_WORK_MS = 150L;
+
     private final Map<Integer, NodeConfig> nodes;
     private final List<Integer> nodeIds;
+    private final long simulatedWorkMs;
 
     public ClusterConfig(Map<Integer, NodeConfig> nodes) {
+        this(nodes, DEFAULT_SIMULATED_WORK_MS);
+    }
+
+    public ClusterConfig(Map<Integer, NodeConfig> nodes, long simulatedWorkMs) {
         this.nodes = Collections.unmodifiableMap(new LinkedHashMap<>(nodes));
         this.nodeIds = Collections.unmodifiableList(new ArrayList<>(nodes.keySet()));
+        this.simulatedWorkMs = simulatedWorkMs;
+    }
+
+    /**
+     * Delay every node adds to each subtask (property "simulatedWorkMs", overridable with
+     * -Dagentgrid.simulatedWorkMs). The real stage work is sub-millisecond, so without it
+     * the thread-pool (Exp 2) and load-balancing (Exp 6) effects would not be measurable.
+     */
+    public long getSimulatedWorkMs() {
+        return simulatedWorkMs;
     }
 
     public NodeConfig getNode(int nodeId) {
@@ -181,6 +199,8 @@ public class ClusterConfig {
             nodes.put(id, new NodeConfig(id, port, poolSize, clockDriftMs));
         }
 
-        return new ClusterConfig(nodes);
+        String work = System.getProperty("agentgrid.simulatedWorkMs",
+                props.getProperty("simulatedWorkMs", String.valueOf(DEFAULT_SIMULATED_WORK_MS)));
+        return new ClusterConfig(nodes, Long.parseLong(work.trim()));
     }
 }

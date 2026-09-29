@@ -1,0 +1,2 @@
+Byzantine Faults
+A Byzantine fault is a failure in which a node behaves arbitrarily, including sending conflicting messages. Tolerating f Byzantine nodes requires at least three f plus one nodes. Byzantine fault tolerant protocols use signatures and multiple voting rounds. They are used where participants may be malicious, such as in blockchains.

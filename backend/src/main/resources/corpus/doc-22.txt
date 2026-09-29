@@ -1,0 +1,2 @@
+MapReduce
+MapReduce splits a large computation into map tasks that process input chunks in parallel and reduce tasks that combine the intermediate results. The framework handles partitioning, scheduling and retrying failed tasks. Map outputs are shuffled so that all values for one key reach the same reducer. It suits batch jobs such as indexing and word counting over large corpora.

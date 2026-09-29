@@ -1,0 +1,2 @@
+Retries and Idempotency
+Networks lose messages, so clients retry requests after a timeout. A retry can execute an operation twice if the first attempt succeeded but its reply was lost. Idempotent operations produce the same result when applied more than once, which makes retries safe. Request identifiers let a server detect and discard duplicates.

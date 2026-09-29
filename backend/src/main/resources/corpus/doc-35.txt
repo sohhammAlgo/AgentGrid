@@ -1,0 +1,2 @@
+Collective Communication
+Collective operations involve every process in a group, such as broadcast, scatter, gather and reduce. A reduce combines values from all processes with an operation like sum or maximum. Tree based algorithms complete a broadcast in a logarithmic number of steps. Message passing libraries such as MPI provide these collectives.

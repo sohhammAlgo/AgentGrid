@@ -131,6 +131,7 @@ public class ClusterMonitor {
     private volatile boolean burstActive = false;
     private volatile long electionFastUntilMs = 0;
     private volatile String desiredAlgorithm = "BULLY";
+    private volatile JobDirectory jobDirectory;
     private Thread pollingThread;
     private final Object burstLock = new Object();
 
@@ -150,7 +151,14 @@ public class ClusterMonitor {
     }
 
     private boolean isElectionFast() {
-        return electionTracker.isActive() || System.currentTimeMillis() < electionFastUntilMs;
+        JobDirectory jd = jobDirectory;
+        return electionTracker.isActive() || System.currentTimeMillis() < electionFastUntilMs
+                || (jd != null && jd.hasActive());
+    }
+
+    /** Jobs are refreshed (and orphans detected) once per monitoring cycle. */
+    public void setJobDirectory(JobDirectory jobDirectory) {
+        this.jobDirectory = jobDirectory;
     }
 
     private void wake() {
@@ -221,6 +229,11 @@ public class ClusterMonitor {
         }
         List<EventLog.Event> merged = pullTelemetry();
         electionTracker.onCycle(getSnapshot(), merged, desiredAlgorithm, cycleStartMs);
+        JobDirectory jd = jobDirectory;
+        if (jd != null) {
+            Object leader = electionTracker.toMap().get("leaderId");
+            jd.onCycle(getSnapshot(), leader instanceof Integer ? (Integer) leader : null);
+        }
     }
 
     public NodeStatus pollNode(int nodeId) {

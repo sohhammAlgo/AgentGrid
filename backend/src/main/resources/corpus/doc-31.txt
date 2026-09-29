@@ -1,0 +1,2 @@
+Distributed Snapshots
+The Chandy Lamport algorithm records a consistent global snapshot of a distributed system while it keeps running. A process records its state and sends a marker on every outgoing channel. Messages arriving before a marker on a channel are recorded as in transit. The snapshot is used for checkpointing and for detecting stable properties such as deadlock.

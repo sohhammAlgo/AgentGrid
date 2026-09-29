@@ -246,38 +246,104 @@ Connected nodes: 3 (pool sizes 2 / 4 / 6, simulating weak / medium / strong hard
 
 Routing subtasks proportional to node processing capacity via `Weighted` balancing reduces overall makespan compared to uniform `RoundRobin` distribution.
 
-## Integrated Cluster (in progress)
+## Integrated Cluster
 
-Phase 1 integrates the individual experiment modules into a unified 5-node cluster running as independent OS processes, with each node hosting all 4 node services (`agent`, `time`, `election`, `blackboard`) on its dedicated port.
+The experiments also run together in one live cluster: 5 node processes, a control plane
+that starts and watches them, and a web dashboard. Each node process (`agentgrid.node.NodeMain`)
+binds these services in its own RMI registry:
+
+| Binding | Service |
+|---|---|
+| `agent` | Worker: runs subtasks on a fixed thread pool (Exp 1, 2), dispatching by type to the stage strategies in `agentgrid.orchestrator` |
+| `time` | Drifting physical clock (Exp 3) |
+| `election-node-<id>` | Bully / Ring leader election with a heartbeat failure detector (Exp 4) |
+| `blackboard-node-node-<id>` | Replicated blackboard (Exp 5; not yet used by the cluster) |
+| `telemetry` | The node's event buffer, pulled by the control plane |
+| `orchestrator` | Job orchestrator; active only on the elected leader |
 
 ### Configuration
-Cluster topology is defined in [`backend/cluster.properties`](file:///c:/Users/Dhruvv/Desktop/dc/AgentGrid/backend/cluster.properties):
-- 5 nodes (IDs 1–5) on ports 1601–1605 (avoiding standalone demo ports 1099, 1100–1102, 1201–1203, 1301–1305, 1401–1403).
-- Heterogeneous worker thread pool sizes (2, 4, 4, 6, 6) simulating hardware tiers.
-- Artificial physical clock drift offsets (+3000ms, -2000ms, +500ms, 0ms, +1500ms).
+[`backend/cluster.properties`](backend/cluster.properties):
+- 5 nodes (IDs 1–5) on ports 1601–1605 (avoiding the standalone demo ports 1099, 1100–1102, 1201–1203, 1301–1305, 1401–1403).
+- Worker pool sizes 2, 4, 4, 6, 6 (heterogeneous hardware).
+- Clock drift offsets +3000, -2000, +500, 0, +1500 ms.
+- `simulatedWorkMs=150`: delay each node adds to every subtask. The real stage work is
+  sub-millisecond, so without it the thread-pool and load-balancing effects would not show.
+  Override with `-Dagentgrid.simulatedWorkMs=<ms>`.
+
+The document corpus that jobs search is `backend/src/main/resources/corpus/` (40 short
+documents listed in `index.txt`); the build copies it onto the classpath.
 
 ### Build
-From repo root:
+From the repo root:
 ```bash
-# On Linux/macOS:
+# Linux/macOS
 ./backend/build.sh
 
-# On Windows:
+# Windows
 .\backend\build.bat
 # or
 .\backend\build.ps1
 ```
+Output goes to `backend/build/classes` (compiled classes plus the corpus).
 
-### Launch
-Start the 5-node cluster launcher:
+### Start the control plane
 ```bash
 cd backend
-java -cp build/classes agentgrid.node.ClusterLauncher
+java -cp build/classes agentgrid.control.ControlPlaneMain
 ```
-The launcher starts nodes 1..5 as independent JVM processes via `ProcessBuilder`, performs RMI health checks across all 20 bound services, and prints a status table. Stopping the launcher via `Ctrl-C` automatically terminates all child node processes.
+It starts nodes 1–5 as child JVM processes (each with `-Xms16m -Xmx256m`), polls them over
+RMI, pulls their events, and serves the API and the dashboard. `Ctrl-C` stops the nodes too.
+Node output goes to `backend/build/logs/node-<id>.log`.
 
-### Logs
-Individual node logs (stdout and stderr) are written to:
-`backend/build/logs/node-<id>.log` (e.g. `node-1.log` through `node-5.log`).
+Dashboard: **http://127.0.0.1:8080/** (the server binds to 127.0.0.1 only).
+
+The older `agentgrid.node.ClusterLauncher` still starts the 5 nodes without a control plane
+and prints an RMI health table.
+
+### HTTP API
+
+POST endpoints require `Content-Type: application/json` (otherwise 415); an `Origin` header,
+if present, must be `http://127.0.0.1:8080` or `http://localhost:8080` (otherwise 403);
+malformed or invalid input returns 400. Errors are `{"error": "...", "status": N}`.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `/api/modules` | | Dashboard modules: exp1–exp4, exp6 |
+| GET | `/api/cluster` | | Per node: `id, port, up, poolSize, queueDepth, lamport, clockOffsetMs, bindings, leaderView, isLeader` |
+| GET | `/api/events?since=<seq>` | | Merged event log (control-plane and node events) after `seq`: `seq, type, node, details, lamport, nodeWallMs, trueMs`, plus `nodeSeq` and `fields` for node events |
+| GET | `/api/stream` | | Server-sent events: `cluster` and `election` snapshots every 1 s (0.2 s during elections and jobs), and every new `event` |
+| POST | `/api/nodes/{id}/kill` | `{}` | Kills the node process |
+| POST | `/api/nodes/{id}/restart` | `{}` | Restarts the node process |
+| POST | `/api/rmi/invoke` | `{"node": 1, "type": "SUMMARIZE", "count": 12}` | Runs `count` concurrent `execute()` calls on one node (Exp 1, 2) |
+| POST | `/api/clock/drift` | `{"node": 1, "deltaMs": 5000}` | Shifts a node's clock (Exp 3) |
+| POST | `/api/clock/sync` | `{}` | One Berkeley round over the UP nodes (Exp 3) |
+| GET | `/api/election` | | `algorithm, views, agreed, leaderId, backupId, lastEpisode {startTrueMs, endTrueMs, convergenceMs, messages, byKind, leaderId, initiators, table}` |
+| POST | `/api/election/algorithm` | `{"name": "BULLY"}` or `"RING"` | Switches the algorithm on all UP nodes |
+| POST | `/api/election/start` | `{"node": 1}` | Starts an election on one node |
+| POST | `/api/jobs` | `{"query": "...", "policy": "ROUND_ROBIN"}` (or `LEAST_LOADED`, `WEIGHTED`) | `{jobId, leader, status}`; 503 if no leader is agreed |
+| GET | `/api/jobs` | | Recent jobs: `jobId, query, policy, status, leaderNode, makespanMs, subtasks, completedSubtasks, ...` |
+| GET | `/api/jobs/{id}` | | The task graph: status (`QUEUED, RUNNING, COMPLETE, FAILED, ORPHANED`), answer, per-node subtask counts and peak queue depth, and every stage's subtasks with node, status and dispatch / result / completion Lamport times |
+
+### Jobs
+A job runs on the orchestrator of the elected leader: RETRIEVE (keyword match, fanned out
+over 20 corpus chunks) -> RANK (TF-IDF) -> SUMMARIZE (extractive, fanned out over the 20
+best documents) -> SYNTHESIZE (one merged answer, each sentence citing its document).
+Each stage starts after the previous one completes. Subtasks are routed with the submitted
+`agentgrid.balancer` policies. If the leader is killed mid-job, the job becomes ORPHANED
+(its completed subtasks are kept) and the new leader accepts new jobs; it is not resumed.
+
+### Verifiers
+With the control plane running, from `backend/`:
+```bash
+java -cp build/classes agentgrid.control.ElectionVerifier   # Exp 4: election (V1-V6)
+java -cp build/classes agentgrid.control.JobVerifier        # Phase 4: jobs and routing (J1-J5)
+```
+Both use only the HTTP API (JobVerifier also reads the bundled corpus to check that the
+answer's sentences come from the cited documents), print every measured number, end with a
+PASS/FAIL table, and exit non-zero if a check fails. ElectionVerifier kills and restarts nodes
+and takes several minutes.
+
+`agentgrid.node.ElectionBaselineProbe` and `agentgrid.orchestrator.BalancerBaselineProbe`
+produce the "before" numbers in [FIXES.md](FIXES.md).
 
 

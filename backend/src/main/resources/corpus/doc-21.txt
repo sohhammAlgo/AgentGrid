@@ -1,0 +1,2 @@
+Least Loaded Balancing
+A least loaded balancer queries the current load of each server and routes to the least busy one. It adapts to changing load but costs a query per routing decision. Raw queue length is misleading when servers have different capacities, so load should be divided by capacity. Stale load readings can send a burst of requests to the same server.

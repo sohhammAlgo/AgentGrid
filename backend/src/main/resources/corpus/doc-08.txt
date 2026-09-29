@@ -1,0 +1,2 @@
+Ring Election
+In a ring election, nodes are arranged in a logical ring and pass a token to their successor. The token collects the highest identifier seen so far as it travels around the ring. When the token returns to the node that started it, the highest identifier wins and a coordinator message circulates once. A ring election sends fewer messages than the bully algorithm but its latency grows with the ring size.

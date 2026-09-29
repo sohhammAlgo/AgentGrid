@@ -1,0 +1,2 @@
+CAP Theorem
+The CAP theorem states that during a network partition a distributed system must choose between consistency and availability. A consistent system refuses some requests during a partition, while an available one answers with possibly stale data. Partition tolerance is not optional in a real network. The theorem guides which consistency model a system offers.

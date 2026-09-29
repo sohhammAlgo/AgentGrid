@@ -1,0 +1,2 @@
+Consistent Hashing
+Consistent hashing maps both keys and servers onto a ring of hash values. Each key is stored on the first server that follows it on the ring. When a server joins or leaves, only the keys in its segment move. Virtual nodes spread load evenly and are used in distributed hash tables and caches.

@@ -1,0 +1,2 @@
+Task Orchestration
+An orchestrator breaks a job into stages and dispatches the subtasks of each stage to worker nodes. A stage starts only after the stage it depends on has finished, forming a task graph. The orchestrator tracks the status and assigned node of every subtask. If the orchestrator fails mid job, the job is orphaned unless another node can recover it.

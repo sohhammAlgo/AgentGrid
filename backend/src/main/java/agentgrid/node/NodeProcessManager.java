@@ -14,6 +14,9 @@ import java.util.concurrent.TimeUnit;
  */
 public class NodeProcessManager {
 
+    static final String NODE_INITIAL_HEAP = "16m";
+    static final String NODE_MAX_HEAP = "256m";
+
     private final Map<Integer, Process> processes = new ConcurrentHashMap<>();
     private volatile String electionAlgorithm = "BULLY";
 
@@ -37,6 +40,11 @@ public class NodeProcessManager {
         Path logFile = logsDir.resolve("node-" + nodeId + ".log");
         ProcessBuilder pb = new ProcessBuilder(
                 javaBin.toString(),
+                // A node needs a few MB of heap. Without a cap each JVM commits the default
+                // initial heap (1/64 of RAM, ~250 MB here); five of them plus the control plane
+                // exhausted Windows commit memory once in Phase 3B (ElectionVerifier run 4).
+                "-Xms" + NODE_INITIAL_HEAP,
+                "-Xmx" + NODE_MAX_HEAP,
                 "-cp",
                 classpath,
                 "-Dagentgrid.election.algorithm=" + electionAlgorithm,

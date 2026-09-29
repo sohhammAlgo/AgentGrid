@@ -1,0 +1,2 @@
+Remote Method Invocation
+Remote method invocation lets a client call a method on an object that lives in another process as if it were local. The client holds a stub that marshals the arguments, sends them over the network, and unmarshals the reply. Java RMI uses a registry so clients can look up remote objects by name. Every remote call can fail in ways a local call cannot, so remote methods declare RemoteException.

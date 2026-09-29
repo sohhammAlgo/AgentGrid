@@ -1,0 +1,2 @@
+Bully Election
+The bully algorithm elects the node with the highest identifier as leader. A node that suspects the leader has failed sends an election message to every node with a higher identifier. Any higher node that is alive answers and starts its own election, and the highest alive node finally announces itself with a coordinator message. The algorithm sends many messages when many nodes start elections at once.

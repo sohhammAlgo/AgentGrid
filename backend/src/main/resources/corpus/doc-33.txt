@@ -1,0 +1,2 @@
+Sharding
+Sharding partitions a dataset across nodes so that each node stores only part of the data. A shard key decides which node owns each record. Good shard keys spread load evenly and keep related records together. Rebalancing moves shards when nodes are added or become overloaded.

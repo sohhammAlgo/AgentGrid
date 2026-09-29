@@ -35,5 +35,11 @@ public interface NodeAgent extends AgentService {
      * Syncs lamport clock with control plane.
      */
     long sync(long controlLamport) throws RemoteException;
+
+    /**
+     * Highest queue depth reached since the previous call; the tracked peak is then reset
+     * to the current depth. The orchestrator calls it at job start and job end.
+     */
+    int takePeakQueueDepth() throws RemoteException;
 }
 

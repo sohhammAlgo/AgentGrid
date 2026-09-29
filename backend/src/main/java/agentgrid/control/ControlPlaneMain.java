@@ -48,6 +48,7 @@ public class ControlPlaneMain {
     private final NodeProcessManager processManager;
     private final EventLog eventLog;
     private final ClusterMonitor monitor;
+    private final JobDirectory jobDirectory;
     private final HttpServer server;
     private final Path frontendDir;
 
@@ -56,6 +57,8 @@ public class ControlPlaneMain {
         this.processManager = new NodeProcessManager();
         this.eventLog = new EventLog();
         this.monitor = new ClusterMonitor(config, eventLog);
+        this.jobDirectory = new JobDirectory(config, monitor);
+        this.monitor.setJobDirectory(jobDirectory);
 
         this.frontendDir = resolveFrontendDirectory();
 
@@ -122,6 +125,7 @@ public class ControlPlaneMain {
         server.createContext("/api/election", this::handleElection);
         server.createContext("/api/election/algorithm", this::handleElectionAlgorithm);
         server.createContext("/api/election/start", this::handleElectionStart);
+        server.createContext("/api/jobs", this::handleJobs);
         server.createContext("/", this::handleStatic);
     }
 
@@ -138,7 +142,8 @@ public class ControlPlaneMain {
                 Map.of("id", "exp1", "title", "RMI"),
                 Map.of("id", "exp2", "title", "Threads"),
                 Map.of("id", "exp3", "title", "Clocks"),
-                Map.of("id", "exp4", "title", "Election")
+                Map.of("id", "exp4", "title", "Election"),
+                Map.of("id", "exp6", "title", "Load Balancing")
         );
         sendJsonResponse(exchange, 200, modules);
     }
@@ -635,6 +640,81 @@ public class ControlPlaneMain {
         resp.put("node", nodeId);
         resp.put("requestedTrueMs", System.currentTimeMillis());
         sendJsonResponse(exchange, 200, resp);
+    }
+
+    // =========================================================================
+    // JOBS (orchestrator on the leader)
+    // =========================================================================
+
+    private static final int MAX_QUERY_CHARS = 500;
+
+    private void handleJobs(HttpExchange exchange) throws IOException {
+        String path = exchange.getRequestURI().getPath();
+        String rest = path.length() > "/api/jobs".length() ? path.substring("/api/jobs".length()) : "";
+        if (rest.equals("/")) {
+            rest = "";
+        }
+        String method = exchange.getRequestMethod();
+
+        if (rest.isEmpty()) {
+            if (method.equalsIgnoreCase("GET")) {
+                List<Map<String, Object>> list = new ArrayList<>();
+                for (agentgrid.orchestrator.Job job : jobDirectory.list(50)) {
+                    list.add(job.toSummaryMap());
+                }
+                sendJsonResponse(exchange, 200, list);
+            } else if (method.equalsIgnoreCase("POST")) {
+                submitJob(exchange);
+            } else {
+                sendMethodNotAllowed(exchange);
+            }
+            return;
+        }
+
+        if (!method.equalsIgnoreCase("GET")) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        String jobId = rest.substring(1);
+        if (jobId.isEmpty() || jobId.contains("/")) {
+            sendError(exchange, 404, "Unknown jobs endpoint: " + path);
+            return;
+        }
+        agentgrid.orchestrator.Job job = jobDirectory.get(jobId);
+        if (job == null) {
+            sendError(exchange, 404, "Unknown job: " + jobId);
+            return;
+        }
+        sendJsonResponse(exchange, 200, job.toMap());
+    }
+
+    private void submitJob(HttpExchange exchange) throws IOException {
+        if (!validatePostHeaders(exchange)) return;
+        Map<String, Object> req = readJsonBody(exchange);
+        if (req == null) return;
+
+        Object q = req.get("query");
+        if (!(q instanceof String) || ((String) q).isBlank()) {
+            sendError(exchange, 400, "Field 'query' must be a non-empty string");
+            return;
+        }
+        String query = ((String) q).trim();
+        if (query.length() > MAX_QUERY_CHARS) {
+            sendError(exchange, 400, "Field 'query' must be at most " + MAX_QUERY_CHARS + " characters");
+            return;
+        }
+        Object p = req.get("policy");
+        agentgrid.orchestrator.BalancingPolicy policy =
+                p instanceof String ? agentgrid.orchestrator.BalancingPolicy.parse((String) p) : null;
+        if (policy == null) {
+            sendError(exchange, 400, "Field 'policy' must be \"ROUND_ROBIN\", \"LEAST_LOADED\" or \"WEIGHTED\"");
+            return;
+        }
+        try {
+            sendJsonResponse(exchange, 200, jobDirectory.submit(query, policy.name()));
+        } catch (JobDirectory.ApiException e) {
+            sendError(exchange, e.getStatus(), e.getMessage());
+        }
     }
 
     /** Parses the JSON request body; on failure sends 400 and returns null. */

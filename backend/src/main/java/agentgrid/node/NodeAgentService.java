@@ -3,6 +3,8 @@ package agentgrid.node;
 import agentgrid.clock.LamportClock;
 import agentgrid.common.Result;
 import agentgrid.common.Subtask;
+import agentgrid.orchestrator.Corpus;
+import agentgrid.orchestrator.StrategyRegistry;
 
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
@@ -28,6 +30,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * BUG B FIX: In AgentServiceImpl, executeBatch() incremented queueDepth during submission and
  * then delegated each subtask to execute(), which incremented queueDepth a second time.
  * In NodeAgentService, each subtask is counted exactly once from submission until worker completion.
+ *
+ * The work itself is done by the StageStrategy registered for the subtask's type.
  */
 public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
 
@@ -36,8 +40,11 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
 
     private final String agentId;
     private final int poolSize;
+    private final long simulatedWorkMs;
     private final transient AtomicInteger queueDepth = new AtomicInteger(0);
+    private final transient AtomicInteger peakQueueDepth = new AtomicInteger(0);
     private final transient LamportClock lamportClock;
+    private final transient StrategyRegistry strategies;
     private final transient ExecutorService threadPool;
     private transient volatile Runnable syncListener;
 
@@ -49,13 +56,24 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
         this(agentId, poolSize, new LamportClock());
     }
 
-    /**
-     * @param lamportClock the node's single Lamport clock, shared with its telemetry buffer
-     *                     and election service
-     */
     public NodeAgentService(String agentId, int poolSize, LamportClock lamportClock) throws RemoteException {
-        super();
-        this.lamportClock = lamportClock;
+        this(agentId, poolSize, lamportClock, StrategyRegistry.defaults(Corpus.load()),
+                ClusterConfig.DEFAULT_SIMULATED_WORK_MS);
+    }
+
+    /**
+     * @param lamportClock    the node's single Lamport clock, shared with its telemetry buffer
+     *                        and election service
+     * @param strategies      the work done per Subtask.Type
+     * @param simulatedWorkMs delay added to every subtask; the real stage work is
+     *                        sub-millisecond, so without it the thread-pool (Exp 2) and
+     *                        load-balancing (Exp 6) effects would not be measurable
+     */
+    public NodeAgentService(String agentId, int poolSize, LamportClock lamportClock,
+                            StrategyRegistry strategies, long simulatedWorkMs) throws RemoteException {
+        // Exported with a connect timeout so an orchestrator dispatching to a killed node
+        // fails fast instead of stalling on the Windows connect retry (see TimeoutSocketFactory).
+        super(0, TimeoutSocketFactory.INSTANCE, null);
         if (agentId == null || agentId.isBlank()) {
             throw new IllegalArgumentException("agentId must be a non-empty string");
         }
@@ -64,6 +82,9 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
         }
         this.agentId = agentId;
         this.poolSize = poolSize;
+        this.lamportClock = lamportClock;
+        this.strategies = strategies;
+        this.simulatedWorkMs = Math.max(0, simulatedWorkMs);
         this.threadPool = Executors.newFixedThreadPool(poolSize);
     }
 
@@ -77,7 +98,7 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
      */
     @Override
     public Result execute(Subtask subtask) throws RemoteException {
-        queueDepth.incrementAndGet();
+        enqueued();
         Future<Result> future;
         try {
             future = threadPool.submit(() -> {
@@ -115,7 +136,7 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
         List<Future<Result>> futures = new ArrayList<>(subtasks.size());
 
         for (Subtask subtask : subtasks) {
-            queueDepth.incrementAndGet();
+            enqueued();
             try {
                 Future<Result> future = threadPool.submit(() -> {
                     try {
@@ -145,62 +166,45 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
         return results;
     }
 
+    private void enqueued() {
+        int depth = queueDepth.incrementAndGet();
+        peakQueueDepth.accumulateAndGet(depth, Math::max);
+    }
+
     /**
      * Internal subtask processor executed on a worker pool thread.
-     * Updates Lamport logical time, logs execution, and computes result.
-     * Synchronizes clock update and printout to guarantee strictly increasing log order.
+     * Receiving the subtask is a Lamport receive event; returning the Result is a send
+     * event, so the Result carries a timestamp ticked after the work, greater than both
+     * the sender's timestamp and anything this node did in between.
      */
     private Result executeSubtaskInternal(Subtask subtask) {
-        long eventTime;
+        long receiveTime;
         synchronized (lamportClock) {
-            eventTime = lamportClock.update(subtask.getLamportTimestamp());
+            receiveTime = lamportClock.update(subtask.getLamportTimestamp());
             System.out.println("[" + agentId + "] executing "
                     + subtask + " on "
                     + Thread.currentThread().getName()
-                    + " | lamport=" + eventTime);
+                    + " | lamport=" + receiveTime);
         }
 
-        String output = simpleAgentLogic(subtask);
+        Result work = strategies.run(subtask);
+        simulateWork();
 
-        return new Result(
-                subtask.getSubtaskId(),
-                agentId,
-                output,
-                eventTime,
-                true
-        );
-    }
-
-    /**
-     * Simulated agent NLP logic for mock retrieval, ranking, summarization, and synthesis.
-     */
-    private String simpleAgentLogic(Subtask subtask) {
-        simulateIoLatency();
-
-        switch (subtask.getType()) {
-            case RETRIEVE:
-                return "retrieved[" + subtask.getPayload() + "]";
-            case RANK:
-                return "ranked[" + subtask.getPayload() + "]";
-            case SUMMARIZE:
-                return "summary of: " + subtask.getPayload();
-            case SYNTHESIZE:
-                return "synthesized: " + subtask.getPayload();
-            default:
-                return "unknown-op";
+        long sendTime;
+        synchronized (lamportClock) {
+            sendTime = lamportClock.tick();
         }
+        return new Result(subtask.getSubtaskId(), agentId, work.getOutput(), sendTime, work.isSuccess());
     }
 
-    /**
-     * Simulates 150 ms of I/O-bound agent work.
-     */
-    private void simulateIoLatency() {
+    private void simulateWork() {
+        if (simulatedWorkMs <= 0) {
+            return;
+        }
         try {
-            Thread.sleep(getSimulatedWorkMs());
-        } catch (Exception e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
+            Thread.sleep(simulatedWorkMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -224,6 +228,11 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
         return queueDepth.get();
     }
 
+    @Override
+    public int takePeakQueueDepth() throws RemoteException {
+        return peakQueueDepth.getAndSet(queueDepth.get());
+    }
+
     /**
      * Reads this agent's current logical clock timestamp over RMI.
      *
@@ -244,7 +253,7 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
 
     @Override
     public long getSimulatedWorkMs() throws RemoteException {
-        return 150;
+        return simulatedWorkMs;
     }
 
     /** Runs after every sync() call; the failure detector uses the first one as its boot gate. */
@@ -265,4 +274,3 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
         return time;
     }
 }
-

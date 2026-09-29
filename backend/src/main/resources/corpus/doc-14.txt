@@ -1,0 +1,2 @@
+Primary Backup Replication
+Primary backup replication sends every write to a primary replica, which forwards it to one or more backups. Reads can be served by the primary for strong consistency. When the primary fails, a backup is promoted and clients are redirected to it. The promotion must be coordinated, otherwise two primaries could accept conflicting writes.

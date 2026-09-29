@@ -1,0 +1,2 @@
+Split Brain
+Split brain happens when a partition leaves two groups that each believe they have the leader. Both leaders may accept writes, and the state diverges. Majority quorums prevent split brain because only one side of a partition can hold a majority. Fencing tokens let storage reject requests from a stale leader.

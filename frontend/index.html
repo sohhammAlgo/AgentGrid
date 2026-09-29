@@ -36,6 +36,15 @@
       </div>
     </section>
 
+    <!-- Job Console: jobs run by the orchestrator on the elected leader -->
+    <section class="job-section">
+      <div class="section-header">
+        <h2>Job Console</h2>
+        <span class="badge" id="job-leader-badge">leader: —</span>
+      </div>
+      <div class="job-console" id="job-console"></div>
+    </section>
+
     <!-- Main Workspace: Panels + Event Log -->
     <div class="workspace-grid">
       <!-- Left Column: Experiment Modules -->
@@ -88,5 +97,6 @@
 
   <!-- Global scripts -->
   <script src="app.js"></script>
+  <script src="jobs.js"></script>
 </body>
 </html>

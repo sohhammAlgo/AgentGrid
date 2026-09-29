@@ -1,0 +1,2 @@
+Raft Consensus
+Raft is a consensus algorithm designed to be easier to understand than Paxos. It elects a leader with randomized election timeouts and replicates a log of commands to followers. An entry is committed once a majority of servers have stored it. Terms number each leadership period so that stale leaders are recognized and ignored.

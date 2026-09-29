@@ -1,0 +1,2 @@
+Round Robin Load Balancing
+Round robin load balancing sends each new request to the next server in a fixed order. It is simple and fair by request count. It ignores server capacity and current load, so a weak server receives as many tasks as a strong one. With heterogeneous nodes, round robin makes the slowest node the bottleneck and lengthens the makespan.

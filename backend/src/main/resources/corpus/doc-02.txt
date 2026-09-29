@@ -1,0 +1,2 @@
+Thread Pools
+A thread pool keeps a fixed number of worker threads and feeds them tasks from a queue. Reusing threads avoids the cost of creating a thread for every request. The pool size bounds how much work a node runs concurrently, so a node with a larger pool can absorb more parallel requests. When all workers are busy, new tasks wait in the queue and the queue depth grows.

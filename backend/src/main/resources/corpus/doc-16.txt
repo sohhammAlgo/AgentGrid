@@ -1,0 +1,2 @@
+Eventual Consistency
+Eventual consistency guarantees that replicas converge if no new updates arrive. Writes return quickly because they are propagated to other replicas in the background. Readers may see stale data for a short window after a write. Conflicting concurrent writes need a resolution rule such as last writer wins or a merge function.

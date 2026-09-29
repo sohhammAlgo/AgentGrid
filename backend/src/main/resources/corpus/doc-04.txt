@@ -1,0 +1,2 @@
+Vector Clocks
+A vector clock keeps one counter per process instead of a single number. Comparing two vector timestamps tells whether one event happened before another or whether they are concurrent. Vector clocks detect concurrent updates that a Lamport clock cannot distinguish. Their size grows with the number of processes, which limits them in very large systems.

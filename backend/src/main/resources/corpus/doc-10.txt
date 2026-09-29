@@ -1,0 +1,2 @@
+Heartbeats
+A heartbeat is a small periodic message that shows a process is still alive. The receiver counts consecutive missed heartbeats and declares the sender failed after a threshold. The heartbeat interval and the miss threshold together set the detection time. Heartbeats to a crashed machine may stall until a connection timeout expires, which adds to detection latency.

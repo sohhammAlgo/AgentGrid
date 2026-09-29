@@ -1,0 +1,2 @@
+Stragglers and Scheduling
+A straggler is a task that runs much slower than its peers and delays the whole job. Stragglers come from overloaded machines, contention or slow disks. Speculative execution starts a backup copy of a slow task and uses whichever finishes first. Schedulers that consider node capacity avoid creating stragglers in the first place.

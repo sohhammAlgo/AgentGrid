@@ -1,0 +1,2 @@
+Clock Drift
+Physical clocks in different machines drift apart because crystal oscillators run at slightly different rates. A drift of a few parts per million accumulates to seconds over days. Timestamps from drifting clocks can order events incorrectly across nodes. Protocols such as NTP estimate the offset to a reference clock using round trip time.

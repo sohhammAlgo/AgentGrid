@@ -1,0 +1,2 @@
+Two Phase Commit
+Two phase commit makes a distributed transaction either commit everywhere or abort everywhere. In the prepare phase the coordinator asks every participant to vote, and in the commit phase it announces the decision. If the coordinator crashes after participants vote yes, they block until it recovers. Three phase commit and consensus based commit reduce this blocking.

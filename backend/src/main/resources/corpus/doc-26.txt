@@ -1,0 +1,2 @@
+Leader Leases
+A leader lease grants leadership for a bounded time interval. The leader must renew the lease before it expires, and followers wait for expiry before electing a new leader. Leases let a leader serve reads locally without consulting a quorum. They depend on bounded clock drift between machines.

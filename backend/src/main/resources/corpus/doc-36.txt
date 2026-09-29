@@ -1,0 +1,2 @@
+Parallel Matrix Multiplication
+Parallel matrix multiplication divides the matrices into blocks and assigns block products to different workers. Each worker computes its partial products and the results are summed. Communication cost grows with the amount of data exchanged between workers. Speedup is limited by the slowest worker and by the time spent moving blocks.

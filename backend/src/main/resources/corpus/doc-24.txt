@@ -1,0 +1,2 @@
+Gossip Protocols
+In a gossip protocol each node periodically exchanges state with a few random peers. Information spreads through the cluster in a number of rounds logarithmic in its size. Gossip is robust because no single node is required for dissemination. It is used for membership, failure detection and eventual consistency.

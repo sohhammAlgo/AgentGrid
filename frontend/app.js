@@ -32,6 +32,29 @@
     setElectionAlgorithm: (name) => postJson('/api/election/algorithm', { name }, 'Algorithm change failed'),
     startElection: (nodeId) => postJson('/api/election/start', { node: nodeId }, 'Election start failed'),
     killNode: (nodeId) => postJson(`/api/nodes/${nodeId}/kill`, {}, 'Kill failed'),
+    submitJob: (query, policy) => postJson('/api/jobs', { query, policy }, 'Job submission failed'),
+    getJob: async (jobId) => {
+      const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Request failed' }));
+        throw new Error(err.error || 'Job lookup failed');
+      }
+      return res.json();
+    },
+    listJobs: async () => {
+      const res = await fetch('/api/jobs');
+      if (!res.ok) throw new Error('Job list failed');
+      return res.json();
+    },
+    /** Polls a job until it leaves QUEUED/RUNNING; calls onUpdate with every snapshot. */
+    waitForJob: async (jobId, onUpdate, intervalMs = 250) => {
+      for (;;) {
+        const job = await window.AgentGrid.getJob(jobId);
+        if (onUpdate) onUpdate(job);
+        if (job.status !== 'QUEUED' && job.status !== 'RUNNING') return job;
+        await new Promise(r => setTimeout(r, intervalMs));
+      }
+    },
     invokeRmi: async (nodeId, type, count) => {
       const res = await fetch('/api/rmi/invoke', {
         method: 'POST',

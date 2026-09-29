@@ -1,0 +1,2 @@
+Strong Consistency
+Strong consistency, or linearizability, makes a replicated object behave as if there were a single copy. Every read returns the value of the most recent completed write. Achieving it requires coordination on every write, which adds latency. Systems that need correctness for money or leader state usually choose strong consistency.

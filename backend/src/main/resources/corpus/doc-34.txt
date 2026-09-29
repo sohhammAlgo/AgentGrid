@@ -1,0 +1,2 @@
+Caching
+A cache keeps copies of frequently used data close to where it is needed. Caches reduce latency and the load on the backing store. Invalidation is hard because stale cached copies must be updated or removed after a write. Time to live values bound how long stale data can be served.

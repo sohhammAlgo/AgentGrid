@@ -1,0 +1,2 @@
+Weighted Load Balancing
+Weighted load balancing gives each server a share of requests proportional to a configured weight. Weights usually reflect capacity such as the number of worker threads or cores. Smooth weighted round robin spreads the picks so that a heavy server is not chosen many times in a row. A fixed weight cannot react when a server slows down for reasons its weight did not anticipate.

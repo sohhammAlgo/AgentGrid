@@ -1,0 +1,2 @@
+Message Queues
+A message queue decouples producers from consumers by storing messages until they are processed. Queues absorb bursts of load and let consumers work at their own pace. Delivery guarantees range from at most once to at least once. Growing queue depth is an early signal that consumers cannot keep up.

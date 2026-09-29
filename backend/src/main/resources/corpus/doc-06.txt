@@ -1,0 +1,2 @@
+Berkeley Algorithm
+The Berkeley algorithm synchronizes a group of clocks without an external time source. A coordinator polls every node, compensates each reading for half the round trip time, and computes the average offset. It then sends each node the correction that moves it to that average. The group agrees on a common time, which may still differ from true time.

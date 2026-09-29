@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Exported with TimeoutSocketFactory so connects to a dead peer fail after
  * TimeoutSocketFactory.CONNECT_TIMEOUT_MS instead of stalling.
  */
-public class ElectionNode extends UnicastRemoteObject implements NodeElection {
+public final class ElectionNode extends UnicastRemoteObject implements NodeElection {
 
     private static final long serialVersionUID = 1L;
 
