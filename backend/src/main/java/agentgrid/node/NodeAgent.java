@@ -17,4 +17,13 @@ public interface NodeAgent extends AgentService {
      * @throws RemoteException if an RMI communication failure occurs
      */
     int getPoolSize() throws RemoteException;
+
+    /**
+     * Reads this agent's current logical clock timestamp over RMI.
+     *
+     * @return current Lamport logical timestamp
+     * @throws RemoteException if an RMI communication failure occurs
+     */
+    long getLamportTime() throws RemoteException;
 }
+

@@ -46,4 +46,32 @@ This document tracks bug fixes, architectural improvements, and empirical valida
   Why couldn't `executeBatch()` simply call the fixed `execute()` method?
   In the fixed `NodeAgentService`, `execute()` submits a task to `threadPool` and blocks the caller thread awaiting `Future.get()`. If `executeBatch()` submitted tasks to `threadPool` whose task bodies called `execute()`, the worker threads in `threadPool` would each be blocked waiting for a nested subtask to be executed by `threadPool`. With all `poolSize` worker threads blocked waiting for free workers, no worker would ever become available to execute the nested subtasks, resulting in complete **thread-pool starvation deadlock**. By decoupling subtask execution logic (`executeSubtaskInternal()`) from the RMI submission boundary (`execute()`), batch execution runs tasks directly on worker threads with zero nested submission.
 
+---
 
+## Phase 2: Control Plane & Event Ordering
+
+### Fix C: Batch Path Lamport Timestamp Monotonicity Under Concurrent Workers
+
+- **Bug Description**:
+  When `executeBatch()` runs subtasks concurrently across worker threads in `threadPool`, each thread executed `long currentLamport = lamportClock.update(subtask.getLamportTimestamp())` and then subsequently printed `[agent-X] executing ... | lamport=...`. Because the update and stdout print were uncoordinated, worker threads completing out of order or experiencing thread scheduling preemption could interleave stdout output such that `| lamport=` stamps appeared non-monotonic in the console/log output even though the logical clock itself advanced monotonically.
+
+- **Location in Code**:
+  [`backend/src/main/java/agentgrid/node/NodeAgentService.java`](file:///c:/Users/Dhruvv/Desktop/dc/AgentGrid/backend/src/main/java/agentgrid/node/NodeAgentService.java#L143-L157)
+
+- **What Changed in Integrated Version**:
+  In `NodeAgentService.executeSubtaskInternal()`, the `lamportClock.update(...)` advance and the corresponding console print statement are enclosed within a synchronized block on the monitor of `lamportClock`:
+  ```java
+  long currentLamport;
+  synchronized (lamportClock) {
+      currentLamport = lamportClock.update(subtask.getLamportTimestamp());
+      System.out.println(String.format(
+          "[%s] executing %s on %s | lamport=%d",
+          agentId, subtask, Thread.currentThread().getName(), currentLamport
+      ));
+  }
+  ```
+  This guarantees that every subtask execution log output reflects strictly increasing Lamport timestamps on the batch path without interleaving artifacts.
+
+- **Validation**:
+  Verified via Step 0 smoke test: 4 subtasks dispatched to Node 1 on the batch path produced strictly increasing logged Lamport timestamps:
+  `lamport=1` -> `lamport=2` -> `lamport=3` -> `lamport=4`.

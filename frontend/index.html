@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentGrid-Lite — Cluster Control Plane</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <div class="logo-icon">⚡</div>
+        <div>
+          <h1 class="logo-title">AgentGrid-Lite</h1>
+          <p class="logo-subtitle">Distributed Computing Control Plane & Live Dashboard</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="connection-status" id="connection-status">
+          <span class="status-dot pulse"></span>
+          <span id="connection-label">Connecting to Cluster...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Cluster Nodes Overview Bar -->
+    <section class="cluster-section">
+      <div class="section-header">
+        <h2>Cluster Node Fleet (5 Nodes)</h2>
+        <span class="badge" id="online-count-badge">0 / 5 Online</span>
+      </div>
+      <div class="cluster-grid" id="cluster-grid">
+        <!-- Node cards injected dynamically -->
+      </div>
+    </section>
+
+    <!-- Main Workspace: Panels + Event Log -->
+    <div class="workspace-grid">
+      <!-- Left Column: Experiment Modules -->
+      <section class="panel-section">
+        <div class="tabs-header" id="module-tabs">
+          <!-- Dynamic Tabs from /api/modules -->
+        </div>
+        <div class="tab-content" id="module-content">
+          <!-- Module views injected dynamically -->
+        </div>
+      </section>
+
+      <!-- Right Column: Real-time Event Log -->
+      <section class="events-section">
+        <div class="section-header">
+          <div class="events-title-wrap">
+            <h2>Cluster Event Stream</h2>
+            <span class="badge" id="event-count-badge">0 events</span>
+          </div>
+          <div class="events-controls">
+            <span class="order-label">Order by:</span>
+            <div class="toggle-group">
+              <button id="order-lamport-btn" class="toggle-btn active" title="Sort by Lamport logical time">Lamport</button>
+              <button id="order-wall-btn" class="toggle-btn" title="Sort by Callee Node Wall Clock">Node Wall Clock</button>
+            </div>
+            <button id="clear-events-btn" class="btn btn-sm btn-ghost" title="Clear table">Clear</button>
+          </div>
+        </div>
+
+        <div class="events-table-wrapper" id="events-scroll-container">
+          <table class="events-table">
+            <thead>
+              <tr>
+                <th style="width: 55px;">Seq</th>
+                <th style="width: 140px;">Type</th>
+                <th style="width: 65px;">Node</th>
+                <th>Details</th>
+                <th style="width: 85px;">Lamport</th>
+                <th style="width: 120px;">Node Wall Time</th>
+              </tr>
+            </thead>
+            <tbody id="events-tbody">
+              <tr class="empty-row"><td colspan="6">Awaiting cluster events...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Global scripts -->
+  <script src="app.js"></script>
+</body>
+</html>

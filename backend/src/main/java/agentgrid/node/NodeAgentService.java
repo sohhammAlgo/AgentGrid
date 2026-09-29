@@ -138,14 +138,17 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
     /**
      * Internal subtask processor executed on a worker pool thread.
      * Updates Lamport logical time, logs execution, and computes result.
+     * Synchronizes clock update and printout to guarantee strictly increasing log order.
      */
     private Result executeSubtaskInternal(Subtask subtask) {
-        long eventTime = lamportClock.update(subtask.getLamportTimestamp());
-
-        System.out.println("[" + agentId + "] executing "
-                + subtask + " on "
-                + Thread.currentThread().getName()
-                + " | lamport=" + eventTime);
+        long eventTime;
+        synchronized (lamportClock) {
+            eventTime = lamportClock.update(subtask.getLamportTimestamp());
+            System.out.println("[" + agentId + "] executing "
+                    + subtask + " on "
+                    + Thread.currentThread().getName()
+                    + " | lamport=" + eventTime);
+        }
 
         String output = simpleAgentLogic(subtask);
 
@@ -210,11 +213,13 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
     }
 
     /**
-     * Reads this agent's current logical clock timestamp.
+     * Reads this agent's current logical clock timestamp over RMI.
      *
      * @return current Lamport logical timestamp
+     * @throws RemoteException if an RMI error occurs
      */
-    public long getLamportTime() {
+    @Override
+    public long getLamportTime() throws RemoteException {
         return lamportClock.getTime();
     }
 
@@ -225,3 +230,4 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
         threadPool.shutdown();
     }
 }
+

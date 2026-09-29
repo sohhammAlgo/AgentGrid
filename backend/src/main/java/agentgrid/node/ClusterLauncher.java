@@ -5,16 +5,9 @@ import agentgrid.election.ElectionNodeService;
 import agentgrid.replication.ReplicationService;
 import agentgrid.rmi.AgentService;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Launcher for the AgentGrid-Lite 5-node cluster.
@@ -28,56 +21,25 @@ import java.util.concurrent.TimeUnit;
  */
 public class ClusterLauncher {
 
-    private static final List<Process> childProcesses = new CopyOnWriteArrayList<>();
+    private static final NodeProcessManager processManager = new NodeProcessManager();
 
     public static void main(String[] args) {
         try {
             ClusterConfig config = ClusterConfig.load();
             List<Integer> nodeIds = config.getNodeIds();
 
-            Path javaBin = resolveJavaExecutable();
-            String classpath = System.getProperty("java.class.path");
-            Path logsDir = resolveLogsDirectory();
-            Files.createDirectories(logsDir);
-
             // Register shutdown hook first so Ctrl-C cleanly kills all children
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 System.out.println("\n[ClusterLauncher] Shutdown signal received; terminating child processes...");
-                for (Process p : childProcesses) {
-                    if (p.isAlive()) {
-                        p.destroy();
-                    }
-                }
-                for (Process p : childProcesses) {
-                    try {
-                        if (p.isAlive() && !p.waitFor(2, TimeUnit.SECONDS)) {
-                            p.destroyForcibly();
-                        }
-                    } catch (InterruptedException ignored) {
-                        p.destroyForcibly();
-                    }
-                }
+                processManager.stopAll();
                 System.out.println("[ClusterLauncher] All cluster node processes stopped.");
             }));
 
             System.out.println("[ClusterLauncher] Launching " + nodeIds.size() + " cluster nodes...");
 
             for (int nodeId : nodeIds) {
-                Path logFile = logsDir.resolve("node-" + nodeId + ".log");
-                ProcessBuilder pb = new ProcessBuilder(
-                        javaBin.toString(),
-                        "-cp",
-                        classpath,
-                        "agentgrid.node.NodeMain",
-                        String.valueOf(nodeId)
-                );
-                pb.redirectErrorStream(true);
-                pb.redirectOutput(logFile.toFile());
-
-                Process proc = pb.start();
-                childProcesses.add(proc);
-                System.out.println("  -> Node " + nodeId + " process spawned (pid=" + proc.pid()
-                        + ", log=" + logFile + ")");
+                Process proc = processManager.start(nodeId);
+                System.out.println("  -> Node " + nodeId + " process spawned (pid=" + proc.pid() + ")");
             }
 
             // Await node startup and perform health check
@@ -104,24 +66,6 @@ public class ClusterLauncher {
         }
     }
 
-    private static Path resolveJavaExecutable() {
-        Path javaBin = Path.of(System.getProperty("java.home"), "bin", "java");
-        if (System.getProperty("os.name", "").toLowerCase().contains("win")) {
-            Path exe = Path.of(System.getProperty("java.home"), "bin", "java.exe");
-            if (Files.exists(exe)) {
-                return exe;
-            }
-        }
-        return javaBin;
-    }
-
-    private static Path resolveLogsDirectory() {
-        Path backendDir = Path.of("backend");
-        if (Files.isDirectory(backendDir)) {
-            return backendDir.resolve("build").resolve("logs");
-        }
-        return Path.of("build", "logs");
-    }
 
     private static void awaitClusterReadiness(ClusterConfig config, long timeoutMs) {
         long start = System.currentTimeMillis();
