@@ -246,3 +246,38 @@ Connected nodes: 3 (pool sizes 2 / 4 / 6, simulating weak / medium / strong hard
 
 Routing subtasks proportional to node processing capacity via `Weighted` balancing reduces overall makespan compared to uniform `RoundRobin` distribution.
 
+## Integrated Cluster (in progress)
+
+Phase 1 integrates the individual experiment modules into a unified 5-node cluster running as independent OS processes, with each node hosting all 4 node services (`agent`, `time`, `election`, `blackboard`) on its dedicated port.
+
+### Configuration
+Cluster topology is defined in [`backend/cluster.properties`](file:///c:/Users/Dhruvv/Desktop/dc/AgentGrid/backend/cluster.properties):
+- 5 nodes (IDs 1–5) on ports 1601–1605 (avoiding standalone demo ports 1099, 1100–1102, 1201–1203, 1301–1305, 1401–1403).
+- Heterogeneous worker thread pool sizes (2, 4, 4, 6, 6) simulating hardware tiers.
+- Artificial physical clock drift offsets (+3000ms, -2000ms, +500ms, 0ms, +1500ms).
+
+### Build
+From repo root:
+```bash
+# On Linux/macOS:
+./backend/build.sh
+
+# On Windows:
+.\backend\build.bat
+# or
+.\backend\build.ps1
+```
+
+### Launch
+Start the 5-node cluster launcher:
+```bash
+cd backend
+java -cp build/classes agentgrid.node.ClusterLauncher
+```
+The launcher starts nodes 1..5 as independent JVM processes via `ProcessBuilder`, performs RMI health checks across all 20 bound services, and prints a status table. Stopping the launcher via `Ctrl-C` automatically terminates all child node processes.
+
+### Logs
+Individual node logs (stdout and stderr) are written to:
+`backend/build/logs/node-<id>.log` (e.g. `node-1.log` through `node-5.log`).
+
+
