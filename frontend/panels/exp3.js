@@ -11,7 +11,7 @@ window.AgentGridPanels.exp3 = {
         <div style="margin-bottom: 16px;">
           <h3 style="font-size: 16px; font-weight: 700;">Experiment 3: Physical Clock Drift & Berkeley Sync</h3>
           <p style="font-size: 13px; color: var(--text-muted);">
-            Manipulate artificial hardware clock skew across nodes and trigger round-trip compensated Berkeley algorithm synchronization to converge node physical clocks.
+            Manipulate artificial hardware clock skew across nodes and trigger round-trip compensated Berkeley algorithm synchronization to converge node physical clocks. Note: Berkeley converges nodes to their average, not to real time.
           </p>
         </div>
 

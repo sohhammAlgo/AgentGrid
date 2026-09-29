@@ -39,7 +39,8 @@
     },
     syncClocks: async () => {
       const res = await fetch('/api/clock/sync', {
-        method: 'POST'
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Request failed' }));
@@ -131,9 +132,11 @@
     grid.innerHTML = nodes.map(n => {
       const isUp = n.up;
       const pool = n.poolSize || 1;
-      const depth = n.queueDepth || 0;
+      const depth = n.queueDepth === null ? 0 : n.queueDepth;
+      const running = Math.min(depth, pool);
+      const queued = Math.max(0, depth - pool);
       const pct = Math.min(100, Math.round((depth / pool) * 100));
-      const driftSign = n.clockOffsetMs >= 0 ? '+' : '';
+      const driftSign = (n.clockOffsetMs !== null && n.clockOffsetMs >= 0) ? '+' : '';
       const isHot = depth > pool;
 
       return `
@@ -148,7 +151,7 @@
 
           <div class="pool-metric">
             <div class="pool-label-row">
-              <span>Pool: ${depth} / ${pool} active</span>
+              <span>Pool: ${running} running, ${queued} queued</span>
               <span class="mono-cell">${pct}%</span>
             </div>
             <div class="pool-progress-bar">
@@ -158,12 +161,12 @@
 
           <div class="node-stats-row">
             <div class="stat-item">
-              <span class="stat-label">Clock Offset</span>
-              <span class="stat-val ${n.clockOffsetMs === 0 ? '' : 'text-cyan'}">${driftSign}${n.clockOffsetMs} ms</span>
+              <span class="stat-label">clock vs control plane</span>
+              <span class="stat-val ${n.clockOffsetMs === 0 ? '' : 'text-cyan'}">${n.clockOffsetMs === null ? '—' : driftSign + n.clockOffsetMs + ' ms'}</span>
             </div>
             <div class="stat-item">
               <span class="stat-label">Lamport</span>
-              <span class="stat-val">${n.lamport}</span>
+              <span class="stat-val">${n.lamport === null ? '—' : n.lamport}</span>
             </div>
           </div>
 
@@ -183,14 +186,14 @@
   window.AgentGridActions = {
     killNode: async (nodeId) => {
       try {
-        await fetch(`/api/nodes/${nodeId}/kill`, { method: 'POST' });
+        await fetch(`/api/nodes/${nodeId}/kill`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
       } catch (err) {
         alert('Failed to kill node ' + nodeId + ': ' + err.message);
       }
     },
     restartNode: async (nodeId) => {
       try {
-        await fetch(`/api/nodes/${nodeId}/restart`, { method: 'POST' });
+        await fetch(`/api/nodes/${nodeId}/restart`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
       } catch (err) {
         alert('Failed to restart node ' + nodeId + ': ' + err.message);
       }

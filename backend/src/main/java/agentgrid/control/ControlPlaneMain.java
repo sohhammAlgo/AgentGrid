@@ -181,7 +181,6 @@ public class ControlPlaneMain {
         exchange.getResponseHeaders().set("Content-Type", "text/event-stream; charset=UTF-8");
         exchange.getResponseHeaders().set("Cache-Control", "no-cache");
         exchange.getResponseHeaders().set("Connection", "keep-alive");
-        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
         exchange.sendResponseHeaders(200, 0);
 
         OutputStream os = exchange.getResponseBody();
@@ -202,13 +201,13 @@ public class ControlPlaneMain {
 
         try {
             while (true) {
-                // Send periodic 1s cluster snapshots
+                // Send periodic cluster snapshots
                 String snapJson = "event: cluster\ndata: " + JsonUtil.toJson(monitor.getSnapshotAsMaps()) + "\n\n";
                 synchronized (os) {
                     os.write(snapJson.getBytes(StandardCharsets.UTF_8));
                     os.flush();
                 }
-                Thread.sleep(1000);
+                Thread.sleep(monitor.isBurstActive() ? 200 : 1000);
             }
         } catch (InterruptedException | IOException e) {
             // Client disconnected
@@ -219,6 +218,20 @@ public class ControlPlaneMain {
             } catch (Exception ignored) {
             }
         }
+    }
+
+    private boolean validatePostHeaders(HttpExchange exchange) throws IOException {
+        String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
+        if (contentType == null || !contentType.toLowerCase().contains("application/json")) {
+            sendError(exchange, 415, "Content-Type must be application/json");
+            return false;
+        }
+        String origin = exchange.getRequestHeaders().getFirst("Origin");
+        if (origin != null && !origin.equals("http://127.0.0.1:8080") && !origin.equals("http://localhost:8080")) {
+            sendError(exchange, 403, "Forbidden Origin");
+            return false;
+        }
+        return true;
     }
 
     private void handleNodes(HttpExchange exchange) throws IOException {
@@ -248,16 +261,19 @@ public class ControlPlaneMain {
             sendMethodNotAllowed(exchange);
             return;
         }
+        if (!validatePostHeaders(exchange)) return;
 
         if (action.equals("kill")) {
             boolean killed = processManager.kill(nodeId);
             eventLog.record("NODE_KILLED", nodeId, "Node " + nodeId + " process terminated via API", System.currentTimeMillis());
+            syncAllUpNodesLamport();
             monitor.pollNode(nodeId);
             sendJsonResponse(exchange, 200, Map.of("success", true, "node", nodeId, "status", "killed", "previouslyAlive", killed));
         } else if (action.equals("restart")) {
             try {
                 Process p = processManager.restart(nodeId);
                 eventLog.record("NODE_RESTARTED", nodeId, "Node " + nodeId + " restarted (pid=" + p.pid() + ")", System.currentTimeMillis());
+                syncAllUpNodesLamport();
                 try {
                     Thread.sleep(600);
                 } catch (InterruptedException ignored) {}
@@ -276,6 +292,7 @@ public class ControlPlaneMain {
             sendMethodNotAllowed(exchange);
             return;
         }
+        if (!validatePostHeaders(exchange)) return;
 
         String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         Map<String, Object> req;
@@ -404,11 +421,13 @@ public class ControlPlaneMain {
             });
         }
 
+        monitor.setBurstActive(true);
         try {
             latch.await(30, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
+            monitor.setBurstActive(false);
             burstPool.shutdown();
         }
 
@@ -421,11 +440,17 @@ public class ControlPlaneMain {
                 ((Number) b.get("index")).intValue()
         ));
 
+        long simulatedWorkMs = 150;
+        try {
+            simulatedWorkMs = agent.getSimulatedWorkMs();
+        } catch (Exception ignored) {}
+
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("node", nodeId);
         resp.put("type", subtaskType.name());
         resp.put("count", count);
         resp.put("makespanMs", makespan);
+        resp.put("simulatedWorkMs", simulatedWorkMs);
         resp.put("calls", sortedResults);
 
         sendJsonResponse(exchange, 200, resp);
@@ -436,6 +461,7 @@ public class ControlPlaneMain {
             sendMethodNotAllowed(exchange);
             return;
         }
+        if (!validatePostHeaders(exchange)) return;
 
         String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         Map<String, Object> req;
@@ -492,11 +518,26 @@ public class ControlPlaneMain {
         }
     }
 
+    private void syncAllUpNodesLamport() {
+        long currentLamport = eventLog.getLamportClock().getTime();
+        for (ClusterMonitor.NodeStatus status : monitor.getSnapshot()) {
+            if (status.isUp()) {
+                try {
+                    Registry registry = LocateRegistry.getRegistry("localhost", status.getPort());
+                    NodeAgent agent = (NodeAgent) registry.lookup("agent");
+                    agent.sync(currentLamport);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+    }
+
     private void handleClockSync(HttpExchange exchange) throws IOException {
         if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) {
             sendMethodNotAllowed(exchange);
             return;
         }
+        if (!validatePostHeaders(exchange)) return;
 
         List<Integer> upNodes = new ArrayList<>();
         for (ClusterMonitor.NodeStatus status : monitor.getSnapshot()) {
@@ -557,7 +598,6 @@ public class ControlPlaneMain {
 
         exchange.getResponseHeaders().set("Content-Type", mimeType);
         exchange.getResponseHeaders().set("Cache-Control", "no-cache");
-        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
         exchange.sendResponseHeaders(200, bytes.length);
 
         try (OutputStream os = exchange.getResponseBody()) {
@@ -586,7 +626,6 @@ public class ControlPlaneMain {
         byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
 
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
-        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
         exchange.sendResponseHeaders(status, bytes.length);
 
         try (OutputStream os = exchange.getResponseBody()) {

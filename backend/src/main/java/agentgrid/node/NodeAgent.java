@@ -25,5 +25,15 @@ public interface NodeAgent extends AgentService {
      * @throws RemoteException if an RMI communication failure occurs
      */
     long getLamportTime() throws RemoteException;
+
+    /**
+     * Returns the simulated work duration in ms for this node.
+     */
+    long getSimulatedWorkMs() throws RemoteException;
+
+    /**
+     * Syncs lamport clock with control plane.
+     */
+    long sync(long controlLamport) throws RemoteException;
 }
 

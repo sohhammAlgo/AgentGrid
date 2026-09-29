@@ -15,8 +15,8 @@
   --accent-amber: #f59e0b;
   --accent-rose: #f43f5e;
 
-  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, Consolas, monospace;
 }
 
 * {

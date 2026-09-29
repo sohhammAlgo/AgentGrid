@@ -35,9 +35,9 @@ public class ClusterMonitor {
         private final int port;
         private final boolean up;
         private final int poolSize;
-        private final int queueDepth;
-        private final long lamport;
-        private final long clockOffsetMs;
+        private final Integer queueDepth;
+        private final Long lamport;
+        private final Long clockOffsetMs;
         private final List<String> bindings;
 
         public NodeStatus(
@@ -45,9 +45,9 @@ public class ClusterMonitor {
                 int port,
                 boolean up,
                 int poolSize,
-                int queueDepth,
-                long lamport,
-                long clockOffsetMs,
+                Integer queueDepth,
+                Long lamport,
+                Long clockOffsetMs,
                 List<String> bindings) {
             this.id = id;
             this.port = port;
@@ -63,9 +63,9 @@ public class ClusterMonitor {
         public int getPort() { return port; }
         public boolean isUp() { return up; }
         public int getPoolSize() { return poolSize; }
-        public int getQueueDepth() { return queueDepth; }
-        public long getLamport() { return lamport; }
-        public long getClockOffsetMs() { return clockOffsetMs; }
+        public Integer getQueueDepth() { return queueDepth; }
+        public Long getLamport() { return lamport; }
+        public Long getClockOffsetMs() { return clockOffsetMs; }
         public List<String> getBindings() { return bindings; }
 
         public Map<String, Object> toMap() {
@@ -90,16 +90,53 @@ public class ClusterMonitor {
     private final Map<Integer, NodeStatus> latestStatuses = new ConcurrentHashMap<>();
     private final Map<Integer, Boolean> lastKnownState = new ConcurrentHashMap<>();
 
+    private volatile boolean burstActive = false;
+    private Thread pollingThread;
+    private final Object burstLock = new Object();
+
+    public void setBurstActive(boolean active) {
+        this.burstActive = active;
+        synchronized (burstLock) {
+            burstLock.notifyAll();
+        }
+    }
+
+    public boolean isBurstActive() {
+        return burstActive;
+    }
+
     public ClusterMonitor(ClusterConfig config, EventLog eventLog) {
         this.config = config;
         this.eventLog = eventLog;
     }
 
     public void start() {
-        scheduler.scheduleWithFixedDelay(this::pollAll, 0, 1000, TimeUnit.MILLISECONDS);
+        pollingThread = new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                long start = System.currentTimeMillis();
+                pollAll();
+                long elapsed = System.currentTimeMillis() - start;
+                long delay = burstActive ? 200 : 1000;
+                long sleep = Math.max(0, delay - elapsed);
+                if (sleep > 0) {
+                    try {
+                        synchronized (burstLock) {
+                            burstLock.wait(sleep);
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        });
+        pollingThread.start();
     }
 
     public void stop() {
+        if (pollingThread != null) {
+            pollingThread.interrupt();
+        }
         scheduler.shutdownNow();
         rmiPool.shutdownNow();
     }
@@ -119,9 +156,9 @@ public class ClusterMonitor {
 
         boolean up = false;
         int poolSize = nc.getPoolSize();
-        int queueDepth = 0;
-        long lamport = 0;
-        long clockOffsetMs = nc.getClockDriftMs();
+        Integer queueDepth = null;
+        Long lamport = null;
+        Long clockOffsetMs = null;
         List<String> bindings = new ArrayList<>();
 
         try {
@@ -189,7 +226,7 @@ public class ClusterMonitor {
                 list.add(s);
             } else {
                 ClusterConfig.NodeConfig nc = config.getNode(id);
-                list.add(new NodeStatus(id, nc.getPort(), false, nc.getPoolSize(), 0, 0, nc.getClockDriftMs(), Collections.emptyList()));
+                list.add(new NodeStatus(id, nc.getPort(), false, nc.getPoolSize(), null, null, null, Collections.emptyList()));
             }
         }
         return list;

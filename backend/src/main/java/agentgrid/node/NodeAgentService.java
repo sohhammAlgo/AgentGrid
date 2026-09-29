@@ -186,9 +186,11 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
      */
     private void simulateIoLatency() {
         try {
-            Thread.sleep(150);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            Thread.sleep(getSimulatedWorkMs());
+        } catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
@@ -228,6 +230,18 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
      */
     public void shutdown() {
         threadPool.shutdown();
+    }
+
+    @Override
+    public long getSimulatedWorkMs() throws RemoteException {
+        return 150;
+    }
+
+    @Override
+    public long sync(long controlLamport) throws RemoteException {
+        synchronized (lamportClock) {
+            return lamportClock.update(controlLamport);
+        }
     }
 }
 

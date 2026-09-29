@@ -65,8 +65,8 @@ window.AgentGridPanels.exp2 = {
                 <span class="stat-val text-cyan" id="exp2-res-makespan">-</span>
               </div>
               <div class="stat-item">
-                <span class="stat-label">Estimated Speedup</span>
-                <span class="stat-val" style="color: var(--accent-emerald);" id="exp2-res-speedup">-</span>
+                <span class="stat-label">Peak Queue / Ideal Makespan</span>
+                <span class="stat-val" style="color: var(--accent-emerald);" id="exp2-res-ideal">-</span>
               </div>
               <div class="stat-item">
                 <span class="stat-label">Target Pool Size</span>
@@ -108,6 +108,15 @@ window.AgentGridPanels.exp2 = {
 
       burstBtn.disabled = true;
       burstBtn.innerHTML = `<span>Executing burst of ${count}...</span>`;
+      
+      let peakQueue = 0;
+      const peakTracker = (nodes) => {
+        const n = nodes.find(x => x.id === nodeId);
+        if (n && n.queueDepth !== null && n.queueDepth > peakQueue) {
+          peakQueue = n.queueDepth;
+        }
+      };
+      window.AgentGrid.onClusterUpdate(peakTracker);
 
       try {
         const resp = await window.AgentGrid.invokeRmi(nodeId, type, count);
@@ -118,10 +127,9 @@ window.AgentGridPanels.exp2 = {
         document.getElementById('exp2-res-makespan').textContent = `${resp.makespanMs} ms`;
         document.getElementById('exp2-res-pool').textContent = `${poolSize} workers`;
 
-        // Theoretical serial = count * 150ms
-        const serialEstimate = count * 150;
-        const speedup = (serialEstimate / resp.makespanMs).toFixed(2);
-        document.getElementById('exp2-res-speedup').textContent = `${speedup}x`;
+        const workMs = resp.simulatedWorkMs || 150;
+        const ideal = Math.ceil(count / (poolSize === '?' ? 1 : poolSize)) * workMs;
+        document.getElementById('exp2-res-ideal').textContent = `Peak: ${peakQueue} / Ideal: ${ideal} ms`;
 
         const tbody = document.getElementById('exp2-calls-tbody');
         tbody.innerHTML = (resp.calls || []).map(c => `
@@ -142,6 +150,8 @@ window.AgentGridPanels.exp2 = {
       } finally {
         burstBtn.disabled = false;
         burstBtn.innerHTML = `<span>Dispatch Concurrent Burst</span>`;
+        const idx = window.AgentGrid.getState().clusterListeners.indexOf(peakTracker);
+        if (idx > -1) window.AgentGrid.getState().clusterListeners.splice(idx, 1);
       }
     });
   }
