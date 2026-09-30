@@ -8,6 +8,7 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.io.UncheckedIOException;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -22,6 +23,7 @@ public class Job implements Serializable {
     private final String jobId;
     private final String query;
     private final String policy;
+    private final String consistency;
     private final int leaderNode;
     private final long submittedTrueMs;
     private final TaskGraph graph = new TaskGraph();
@@ -33,10 +35,20 @@ public class Job implements Serializable {
     private Integer orphanAdoptedBy;
     private final TreeMap<Integer, Integer> peakQueueDepth = new TreeMap<>();
 
+    /** A job whose findings are not posted to the blackboard (used by the baseline probe). */
     public Job(String jobId, String query, String policy, int leaderNode, long submittedTrueMs) {
+        this(jobId, query, policy, null, leaderNode, submittedTrueMs);
+    }
+
+    /**
+     * @param consistency STRONG or EVENTUAL: workers post each SUMMARIZE finding and the
+     *                    answer to the blackboard under this mode; null posts nothing
+     */
+    public Job(String jobId, String query, String policy, String consistency, int leaderNode, long submittedTrueMs) {
         this.jobId = jobId;
         this.query = query;
         this.policy = policy;
+        this.consistency = consistency;
         this.leaderNode = leaderNode;
         this.submittedTrueMs = submittedTrueMs;
     }
@@ -44,6 +56,7 @@ public class Job implements Serializable {
     public String getJobId() { return jobId; }
     public String getQuery() { return query; }
     public String getPolicy() { return policy; }
+    public String getConsistency() { return consistency; }
     public int getLeaderNode() { return leaderNode; }
     public synchronized JobStatus getStatus() { return status; }
     public synchronized String getAnswer() { return answer; }
@@ -123,6 +136,7 @@ public class Job implements Serializable {
         m.put("jobId", jobId);
         m.put("query", query);
         m.put("policy", policy);
+        m.put("consistency", consistency);
         m.put("status", status.name());
         m.put("leaderNode", leaderNode);
         m.put("submittedTrueMs", submittedTrueMs);
@@ -141,7 +155,49 @@ public class Job implements Serializable {
         m.put("orphanAdoptedBy", orphanAdoptedBy);
         m.put("subtasksPerNode", stringKeys(subtasksPerNode()));
         m.put("peakQueueDepth", stringKeys(peakQueueDepth));
+        m.put("blackboard", blackboardSummary());
         m.put("stages", graph.toList());
+        return m;
+    }
+
+    /** Blackboard outcome of the findings and answer the workers posted (null if none requested). */
+    public synchronized Map<String, Object> blackboardSummary() {
+        if (consistency == null) {
+            return null;
+        }
+        int findings = 0;
+        int stored = 0;
+        Map<String, Integer> byStatus = new TreeMap<>();
+        List<Long> latencies = new java.util.ArrayList<>();
+        String answerStatus = null;
+        for (JobStage stage : graph.getStages()) {
+            for (JobStage.SubtaskState s : stage.getSubtasks()) {
+                if (s.getBbKey() == null || s.getBbStatus() == null) {
+                    continue;
+                }
+                findings++;
+                byStatus.merge(s.getBbStatus(), 1, Integer::sum);
+                if (s.bbStored()) {
+                    stored++;
+                }
+                if (s.getBbLatencyMs() != null) {
+                    latencies.add(s.getBbLatencyMs());
+                }
+                if (stage.getType() == agentgrid.common.Subtask.Type.SYNTHESIZE) {
+                    answerStatus = s.getBbStatus();
+                }
+            }
+        }
+        java.util.Collections.sort(latencies);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("consistency", consistency);
+        m.put("posted", findings);
+        m.put("stored", stored);
+        m.put("notStored", findings - stored);
+        m.put("byStatus", byStatus);
+        m.put("answerStatus", answerStatus);
+        m.put("medianLatencyMs", latencies.isEmpty() ? null : latencies.get(latencies.size() / 2));
+        m.put("answerKey", "job/" + jobId + "/answer");
         return m;
     }
 

@@ -5,7 +5,6 @@ import agentgrid.clock.TimeServiceImpl;
 import agentgrid.orchestrator.Corpus;
 import agentgrid.orchestrator.Orchestrator;
 import agentgrid.orchestrator.StrategyRegistry;
-import agentgrid.replication.ReplicatedBlackboardNode;
 
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -35,7 +34,8 @@ public class NodeMain {
     private static FailureDetector failureDetector;
     private static NodeEventBuffer telemetry;
     private static Orchestrator orchestrator;
-    private static ReplicatedBlackboardNode blackboardNode;
+    private static ClusterBlackboard blackboard;
+    private static ClockCoordinator clockCoordinator;
     private static Registry registry;
 
     public static void main(String[] args) {
@@ -89,15 +89,27 @@ public class NodeMain {
             registry.rebind("orchestrator", orchestrator);
             lifecycle.register(orchestrator);
 
+            // Berkeley clock sync: every node has a coordinator; only the leader's runs rounds.
+            boolean autoSync = Boolean.parseBoolean(System.getProperty("agentgrid.clock.auto", "true"));
+            clockCoordinator = new ClockCoordinator(nodeId, config, timeService, telemetry, autoSync);
+            registry.rebind("clock", clockCoordinator);
+            lifecycle.register(clockCoordinator);
+
             electionNode = new ElectionNode(nodeId, config.getNodePortMap(), algorithm, telemetry, lifecycle);
             registry.rebind("election-node-" + nodeId, electionNode);
 
-            blackboardNode = new ReplicatedBlackboardNode("node-" + nodeId, port, config.getPeerPortMap());
-            registry.rebind("blackboard-node-node-" + nodeId, blackboardNode);
+            // Replicated blackboard (Exp 5), under the submitted binding name; it also serves the
+            // submitted ReplicationService methods.
+            ElectionNode election = electionNode;
+            blackboard = new ClusterBlackboard(nodeId, config, timeService, telemetry, clockCoordinator,
+                    election::leader);
+            registry.rebind("blackboard-node-node-" + nodeId, blackboard);
+            agentService.setBlackboard(blackboard);
 
             failureDetector = new FailureDetector(electionNode);
             agentService.setSyncListener(failureDetector::onSync);
             failureDetector.start();
+            blackboard.start();
 
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 System.out.println("[Node " + nodeId + "] JVM shutting down; releasing thread pools...");
@@ -110,8 +122,11 @@ public class NodeMain {
                 if (electionNode != null) {
                     electionNode.shutdown();
                 }
-                if (blackboardNode != null) {
-                    blackboardNode.shutdown();
+                if (blackboard != null) {
+                    blackboard.shutdown();
+                }
+                if (clockCoordinator != null) {
+                    clockCoordinator.shutdown();
                 }
             }));
 
@@ -120,7 +135,7 @@ public class NodeMain {
                     + ", drift=" + (driftMs >= 0 ? "+" : "") + driftMs + "ms"
                     + ", election=" + algorithm + ")");
             System.out.println("[Node " + nodeId + "] Registered services: 'agent', 'time', 'election-node-"
-                    + nodeId + "', 'blackboard-node-node-" + nodeId + "', 'telemetry', 'orchestrator'");
+                    + nodeId + "', 'blackboard-node-node-" + nodeId + "', 'telemetry', 'orchestrator', 'clock'");
 
             // Keep process running indefinitely until terminated
             synchronized (NodeMain.class) {

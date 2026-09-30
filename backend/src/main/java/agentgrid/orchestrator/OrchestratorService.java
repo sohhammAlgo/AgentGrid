@@ -10,8 +10,11 @@ import java.util.List;
  */
 public interface OrchestratorService extends Remote {
 
-    /** Queues a job; throws if this node's orchestrator is not active (not the leader). */
-    String submit(String query, String policy) throws RemoteException;
+    /**
+     * Queues a job; throws if this node's orchestrator is not active (not the leader).
+     * consistency (STRONG or EVENTUAL) is the mode the workers post findings under.
+     */
+    String submit(String query, String policy, String consistency) throws RemoteException;
 
     /** A snapshot of the job, or null if this orchestrator does not know it. */
     Job getJob(String jobId) throws RemoteException;

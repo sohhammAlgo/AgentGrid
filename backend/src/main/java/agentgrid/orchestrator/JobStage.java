@@ -37,6 +37,12 @@ public class JobStage implements Serializable {
         private Long completeTrueMs;
         private String output;
         private String fullOutput;
+        private String bbKey;
+        private String bbStatus;
+        private Long bbLatencyMs;
+        private Long bbStamp;
+        private Integer bbWriter;
+        private String bbMessage;
 
         SubtaskState(String subtaskId, String input) {
             this.subtaskId = subtaskId;
@@ -66,6 +72,25 @@ public class JobStage implements Serializable {
             output = reason;
         }
 
+        /** Outcome of the worker's blackboard write of this subtask's finding. */
+        void blackboard(String key, String status, Long latencyMs, Long stamp, Integer writer, String message) {
+            this.bbKey = key;
+            this.bbStatus = status;
+            this.bbLatencyMs = latencyMs;
+            this.bbStamp = stamp;
+            this.bbWriter = writer;
+            this.bbMessage = message;
+        }
+
+        public String getBbKey() { return bbKey; }
+        public String getBbStatus() { return bbStatus; }
+        public Long getBbLatencyMs() { return bbLatencyMs; }
+
+        /** Stored = acknowledged under its mode (STORED, STORED_DEGRADED or ACCEPTED). */
+        public boolean bbStored() {
+            return "STORED".equals(bbStatus) || "STORED_DEGRADED".equals(bbStatus) || "ACCEPTED".equals(bbStatus);
+        }
+
         public String getSubtaskId() { return subtaskId; }
         public SubtaskStatus getStatus() { return status; }
         public Integer getNode() { return node; }
@@ -90,6 +115,17 @@ public class JobStage implements Serializable {
             m.put("completeTrueMs", completeTrueMs);
             m.put("input", input);
             m.put("output", output);
+            if (bbKey != null) {
+                Map<String, Object> bb = new LinkedHashMap<>();
+                bb.put("key", bbKey);
+                bb.put("status", bbStatus);
+                bb.put("stored", bbStored());
+                bb.put("latencyMs", bbLatencyMs);
+                bb.put("timestamp", bbStamp);
+                bb.put("writer", bbWriter);
+                bb.put("message", bbMessage);
+                m.put("blackboard", bb);
+            }
             return m;
         }
     }

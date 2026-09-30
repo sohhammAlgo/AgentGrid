@@ -132,9 +132,11 @@ public final class JobRunner {
 
             inputs = new ArrayList<>();
             for (int i = 0; i < ranked.size(); i++) {
+                Payload p = new Payload().put("query", query).put("doc", ranked.get(i)[0]).put("rank", i + 1)
+                        .put("sentences", 2);
+                blackboardKey(p, job, "finding/summarize-" + (i + 1));
                 inputs.add(new String[] {ranked.get(i)[0] + " (rank " + (i + 1) + ", tf-idf " + ranked.get(i)[1] + ")",
-                        new Payload().put("query", query).put("doc", ranked.get(i)[0]).put("rank", i + 1)
-                                .put("sentences", 2).encode()});
+                        p.encode()});
             }
             if (!runStage(job, Subtask.Type.SUMMARIZE, inputs, policy)) {
                 return fail(job, "SUMMARIZE failed");
@@ -145,12 +147,14 @@ public final class JobRunner {
             for (int i = 0; i < summaries.size(); i++) {
                 synth.put("p" + i, summaries.get(i).fullOutput());
             }
+            blackboardKey(synth, job, "answer");
             inputs = new ArrayList<>();
             inputs.add(new String[] {summaries.size() + " partial summaries", synth.encode()});
             if (!runStage(job, Subtask.Type.SYNTHESIZE, inputs, policy)) {
                 return fail(job, "SYNTHESIZE failed");
             }
             String answer = job.getGraph().stage(Subtask.Type.SYNTHESIZE).getSubtasks().get(0).fullOutput();
+            recordBlackboardSummary(job);
 
             Map<Integer, Integer> peaks = new TreeMap<>();
             for (WorkerNode w : initial) {
@@ -172,7 +176,33 @@ public final class JobRunner {
         }
     }
 
+    /**
+     * Asks the worker to post its output to the blackboard as job/<jobId>/<suffix> under the
+     * job's consistency mode (jobs without a mode post nothing).
+     */
+    private static void blackboardKey(Payload p, Job job, String suffix) {
+        if (job.getConsistency() != null) {
+            p.put("bbKey", "job/" + job.getJobId() + "/" + suffix).put("consistency", job.getConsistency());
+        }
+    }
+
+    /** One BLACKBOARD_JOB_FINDINGS event per job: how the workers' writes went, never one per write. */
+    private void recordBlackboardSummary(Job job) {
+        Map<String, Object> summary = job.blackboardSummary();
+        if (summary == null || ((Integer) summary.get("posted")) == 0) {
+            return;
+        }
+        Map<String, Object> f = new LinkedHashMap<>();
+        f.put("jobId", job.getJobId());
+        f.putAll(summary);
+        f.put("byStatus", String.valueOf(summary.get("byStatus")));
+        sink.record("BLACKBOARD_JOB_FINDINGS", job.getJobId() + " blackboard (" + summary.get("consistency") + "): "
+                + summary.get("stored") + "/" + summary.get("posted") + " findings and answer stored "
+                + summary.get("byStatus") + ", median write " + summary.get("medianLatencyMs") + " ms", f);
+    }
+
     private JobStatus fail(Job job, String reason) {
+        recordBlackboardSummary(job);
         job.finished(JobStatus.FAILED, null, reason, System.currentTimeMillis());
         return job.getStatus();
     }
@@ -218,6 +248,19 @@ public final class JobRunner {
         sink.record("STAGE_COMPLETED", job.getJobId() + " " + type + " " + (ok ? "completed" : "FAILED")
                 + " (" + completed + "/" + inputs.size() + ") in " + (end - start) + " ms", f);
         return ok;
+    }
+
+    private static Integer intOrNull(String s) {
+        Long v = longOrNull(s);
+        return v == null ? null : v.intValue();
+    }
+
+    private static Long longOrNull(String s) {
+        try {
+            return s == null ? null : Long.parseLong(s.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static Map<String, Object> fields(Job job, Subtask.Type type) {
@@ -310,6 +353,7 @@ public final class JobRunner {
             }
             WorkerNode w = worker;
             long sent = carried;
+            boolean postedFinding = Payload.decode(payload).get("bbKey") != null;
             pool.submit(() -> {
                 try {
                     Result r = w.execute(new Subtask(job.getJobId(), state.getSubtaskId(), type, payload, sent));
@@ -328,9 +372,26 @@ public final class JobRunner {
                     f.put("ok", r.isSuccess());
                     long complete = sink.record("SUBTASK_COMPLETED", job.getJobId() + " " + state.getSubtaskId()
                             + " <- node " + w.getNodeId() + (r.isSuccess() ? "" : " FAILED"), f);
+                    // A worker that posted to the blackboard wraps its output: result (unchanged)
+                    // plus the write's outcome. The job is built from result exactly as before.
+                    String output = r.getOutput();
+                    Payload envelope = postedFinding ? Payload.decode(output) : null;
+                    boolean wrapped = envelope != null && envelope.get("bbStatus") != null && envelope.get("result") != null;
+                    if (wrapped) {
+                        output = envelope.get("result");
+                    }
                     synchronized (job) {
                         state.completed(r.getLamportTimestamp(), complete, System.currentTimeMillis(),
-                                r.getOutput(), r.isSuccess());
+                                output, r.isSuccess());
+                        if (wrapped) {
+                            state.blackboard(envelope.get("bbKey"), envelope.get("bbStatus"),
+                                    longOrNull(envelope.get("bbLatencyMs")), longOrNull(envelope.get("bbStamp")),
+                                    intOrNull(envelope.get("bbWriter")),
+                                    envelope.get("bbMessage"));
+                        } else if (postedFinding && r.isSuccess()) {
+                            state.blackboard(Payload.decode(payload).get("bbKey"), "FAILED", null, null, null,
+                                    "the worker returned no blackboard outcome");
+                        }
                     }
                     done.countDown();
                 } catch (RemoteException e) {

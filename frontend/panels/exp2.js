@@ -132,16 +132,16 @@ window.AgentGridPanels.exp2 = {
         document.getElementById('exp2-res-ideal').textContent = `Peak: ${peakQueue} / Ideal: ${ideal} ms`;
 
         const tbody = document.getElementById('exp2-calls-tbody');
-        tbody.innerHTML = (resp.calls || []).map(c => `
-          <tr>
-            <td class="mono-cell">${c.index + 1}</td>
-            <td class="mono-cell">${c.subtaskId}</td>
-            <td style="color: var(--text-main); font-size: 11px;">${c.payload || c.error}</td>
-            <td class="mono-cell">L=${c.lamportSent}</td>
-            <td class="mono-cell" style="color: var(--accent-indigo); font-weight: 600;">L=${c.lamportReceived}</td>
-            <td class="mono-cell" style="color: var(--accent-cyan);">${c.latencyMs} ms</td>
-          </tr>
-        `).join('');
+        // Subtask output is text produced by the node; build cells with text nodes only.
+        const h = window.AgentGrid.h;
+        tbody.replaceChildren(...(resp.calls || []).map(c => h('tr', {}, [
+          h('td', { className: 'mono-cell' }, String(c.index + 1)),
+          h('td', { className: 'mono-cell' }, c.subtaskId),
+          h('td', { style: { color: 'var(--text-main)', fontSize: '11px' } }, c.payload || c.error),
+          h('td', { className: 'mono-cell' }, 'L=' + c.lamportSent),
+          h('td', { className: 'mono-cell', style: { color: 'var(--accent-indigo)', fontWeight: '600' } }, 'L=' + c.lamportReceived),
+          h('td', { className: 'mono-cell', style: { color: 'var(--accent-cyan)' } }, c.latencyMs + ' ms')
+        ])));
 
         document.getElementById('exp2-summary-container').style.display = 'block';
 

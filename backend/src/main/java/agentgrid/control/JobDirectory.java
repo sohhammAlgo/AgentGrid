@@ -8,6 +8,7 @@ import agentgrid.orchestrator.OrchestratorService;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,9 +20,12 @@ import java.util.Set;
  *
  * Jobs run on the leader's orchestrator; this keeps the latest snapshot of each, refreshed
  * every monitor cycle while it is QUEUED or RUNNING. A leader that is killed cannot mark its
- * own job, so when the monitor sees a job's leader node DOWN, the job is marked ORPHANED here
- * (its completed subtasks stay as last seen) and, once a new leader is agreed, handed to that
- * leader's orchestrator, which records JOB_ORPHANED. A demoted leader orphans its own jobs.
+ * own job, so when a job's leader has been DOWN for ORPHAN_AFTER_MS without a break, or another
+ * leader is agreed, the job is marked ORPHANED here (its completed subtasks stay as last seen)
+ * and, once a new leader is agreed, handed to that leader's orchestrator, which records
+ * JOB_ORPHANED. Until another leader is agreed that ORPHANED is provisional: if the original
+ * leader is still the agreed one and reports the job COMPLETE or FAILED, that outcome wins.
+ * A demoted leader orphans its own jobs.
  */
 public class JobDirectory {
 
@@ -48,6 +52,13 @@ public class JobDirectory {
     private final Set<String> adopted = new HashSet<>();
     private volatile boolean active;
 
+    /** A leader must be unreachable this long, continuously, before its running jobs are orphaned. */
+    static final long ORPHAN_AFTER_MS = 1500;
+    // Used by onCycle (the monitor thread) only.
+    private final Map<Integer, Long> downSince = new HashMap<>();
+    /** Jobs this directory orphaned while their leader was still the agreed one; not yet final. */
+    private final Set<String> provisional = new HashSet<>();
+
     public JobDirectory(ClusterConfig config, ClusterMonitor monitor) {
         this.config = config;
         this.monitor = monitor;
@@ -65,7 +76,7 @@ public class JobDirectory {
     }
 
     /** Submits a job to the agreed leader's orchestrator. */
-    public Map<String, Object> submit(String query, String policy) throws ApiException {
+    public Map<String, Object> submit(String query, String policy, String consistency) throws ApiException {
         Object leader = monitor.getElectionTracker().toMap().get("leaderId");
         if (!(leader instanceof Integer)) {
             throw new ApiException(503, "no agreed leader; an election may be in progress");
@@ -75,7 +86,7 @@ public class JobDirectory {
         Job snapshot;
         try {
             OrchestratorService orchestrator = orchestratorOf(leaderId);
-            jobId = monitor.call(() -> orchestrator.submit(query, policy));
+            jobId = monitor.call(() -> orchestrator.submit(query, policy, consistency));
             snapshot = monitor.call(() -> orchestrator.getJob(jobId));
         } catch (Exception e) {
             throw new ApiException(503, "leader node " + leaderId + " did not accept the job: " + rootMessage(e));
@@ -89,6 +100,7 @@ public class JobDirectory {
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("jobId", jobId);
         resp.put("leader", leaderId);
+        resp.put("consistency", consistency);
         resp.put("status", snapshot == null ? null : snapshot.getStatus().name());
         return resp;
     }
@@ -123,6 +135,14 @@ public class JobDirectory {
 
     /** Called once per monitor cycle, after node statuses and the election state are updated. */
     public void onCycle(List<ClusterMonitor.NodeStatus> statuses, Integer agreedLeader) {
+        long now = System.currentTimeMillis();
+        for (ClusterMonitor.NodeStatus s : statuses) {
+            if (s.isUp()) {
+                downSince.remove(s.getId());
+            } else {
+                downSince.putIfAbsent(s.getId(), now);
+            }
+        }
         List<Job> snapshot;
         synchronized (this) {
             snapshot = new ArrayList<>(jobs.values());
@@ -131,16 +151,28 @@ public class JobDirectory {
         for (Job job : snapshot) {
             int owner = job.getLeaderNode();
             boolean ownerUp = isUp(statuses, owner);
+            boolean otherLeader = agreedLeader != null && agreedLeader != owner;
             if (job.getStatus().isActive()) {
                 if (ownerUp) {
                     refresh(job);
-                } else {
+                }
+                // One missed monitor poll is not a dead leader (a 700 ms RMI timeout under load
+                // produced a false NODE_DOWN_DETECTED and orphaned a job that completed): orphan
+                // only after ORPHAN_AFTER_MS of continuous unreachability or once another leader is agreed.
+                long down = ownerUp ? 0 : now - downSince.getOrDefault(owner, now);
+                if (otherLeader || down >= ORPHAN_AFTER_MS) {
                     synchronized (this) {
                         Job current = jobs.get(job.getJobId());
-                        if (current != null) {
-                            current.orphan(System.currentTimeMillis());
+                        if (current != null && current.orphan(now) && !otherLeader) {
+                            provisional.add(job.getJobId());
                         }
                     }
+                }
+            } else if (provisional.contains(job.getJobId())) {
+                if (otherLeader) {
+                    provisional.remove(job.getJobId());   // final: a different leader is agreed
+                } else if (ownerUp && agreedLeader != null) {
+                    settle(job.getJobId(), owner);
                 }
             }
             Job current;
@@ -165,6 +197,25 @@ public class JobDirectory {
             }
         }
         active = anyActive;
+    }
+
+    /**
+     * A provisional ORPHANED job whose leader is back and still the agreed leader: if that
+     * leader reports the job COMPLETE or FAILED, its outcome replaces ORPHANED.
+     */
+    private void settle(String jobId, int owner) {
+        try {
+            OrchestratorService orchestrator = orchestratorOf(owner);
+            Job fresh = monitor.call(() -> orchestrator.getJob(jobId));
+            if (fresh != null && (fresh.getStatus() == JobStatus.COMPLETE || fresh.getStatus() == JobStatus.FAILED)) {
+                synchronized (this) {
+                    store(fresh);
+                }
+                provisional.remove(jobId);
+            }
+        } catch (Exception ignored) {
+            // still unreachable; the next cycle tries again
+        }
     }
 
     private void adopt(Job job, int newLeader) {

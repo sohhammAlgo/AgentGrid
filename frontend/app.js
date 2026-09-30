@@ -32,7 +32,41 @@
     setElectionAlgorithm: (name) => postJson('/api/election/algorithm', { name }, 'Algorithm change failed'),
     startElection: (nodeId) => postJson('/api/election/start', { node: nodeId }, 'Election start failed'),
     killNode: (nodeId) => postJson(`/api/nodes/${nodeId}/kill`, {}, 'Kill failed'),
-    submitJob: (query, policy) => postJson('/api/jobs', { query, policy }, 'Job submission failed'),
+    submitJob: (query, policy, consistency) =>
+      postJson('/api/jobs', consistency ? { query, policy, consistency } : { query, policy }, 'Job submission failed'),
+    getJson: async (url, failMsg) => {
+      const res = await fetch(url);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Request failed' }));
+        throw new Error(err.error || failMsg || 'Request failed');
+      }
+      return res.json();
+    },
+    bbOverview: (prefix) => window.AgentGrid.getJson('/api/blackboard?prefix=' + encodeURIComponent(prefix || ''), 'Blackboard lookup failed'),
+    bbMetrics: () => window.AgentGrid.getJson('/api/blackboard/metrics', 'Metrics lookup failed'),
+    bbRead: (node, key) => window.AgentGrid.getJson(`/api/blackboard/read?node=${encodeURIComponent(node)}&key=${encodeURIComponent(key)}`, 'Read failed'),
+    bbWrite: (node, key, value, mode) => postJson('/api/blackboard/write', { node, key, value, mode }, 'Write failed'),
+    getClockAuto: () => window.AgentGrid.getJson('/api/clock/auto', 'Auto-sync lookup failed'),
+    setClockAuto: (enabled) => postJson('/api/clock/auto', { enabled }, 'Auto-sync change failed'),
+    /**
+     * Builds a DOM element: h('td', {className: 'x', title: '...'}, 'text' | node | [children]).
+     * Text always goes in as a text node (textContent semantics), never as HTML.
+     */
+    h: (tag, props, children) => {
+      const el = document.createElement(tag);
+      Object.entries(props || {}).forEach(([k, v]) => {
+        if (v === undefined || v === null) return;
+        if (k === 'style') Object.assign(el.style, v);
+        else if (k.startsWith('on')) el.addEventListener(k.substring(2), v);
+        else if (k in el) el[k] = v;
+        else el.setAttribute(k, v);
+      });
+      [].concat(children === undefined || children === null ? [] : children).forEach(c => {
+        if (c === null || c === undefined || c === false) return;
+        el.appendChild(c instanceof Node ? c : document.createTextNode(String(c)));
+      });
+      return el;
+    },
     getJob: async (jobId) => {
       const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`);
       if (!res.ok) {
@@ -409,16 +443,39 @@
       }
     });
 
-    tbody.innerHTML = sorted.map(e => `
-      <tr>
-        <td class="mono-cell">${e.seq}</td>
-        <td><span class="type-badge type-${e.type}">${e.type}</span></td>
-        <td class="mono-cell">${e.node > 0 ? 'Node ' + e.node : 'Cluster'}</td>
-        <td style="color: var(--text-main); word-break: break-all;">${escapeHtml(e.details)}</td>
-        <td class="mono-cell" style="color: var(--accent-indigo); font-weight: 600;">L=${e.lamport}</td>
-        <td class="mono-cell" style="color: var(--accent-cyan);">${formatWallTime(e.nodeWallMs)}</td>
-      </tr>
-    `).join('');
+    // Event details can contain user text (blackboard keys and values, job queries), so every
+    // cell is built with textContent; nothing from an event goes through innerHTML.
+    const rows = sorted.map(e => {
+      const tr = document.createElement('tr');
+      tr.appendChild(cell(String(e.seq), 'mono-cell'));
+      const typeCell = document.createElement('td');
+      const badge = document.createElement('span');
+      badge.className = 'type-badge type-' + String(e.type).replace(/[^A-Z0-9_]/g, '');
+      badge.textContent = e.type;
+      typeCell.appendChild(badge);
+      tr.appendChild(typeCell);
+      tr.appendChild(cell(e.node > 0 ? 'Node ' + e.node : 'Cluster', 'mono-cell'));
+      const details = cell(e.details || '', '');
+      details.style.color = 'var(--text-main)';
+      details.style.wordBreak = 'break-all';
+      tr.appendChild(details);
+      const lamport = cell('L=' + e.lamport, 'mono-cell');
+      lamport.style.color = 'var(--accent-indigo)';
+      lamport.style.fontWeight = '600';
+      tr.appendChild(lamport);
+      const wall = cell(formatWallTime(e.nodeWallMs), 'mono-cell');
+      wall.style.color = 'var(--accent-cyan)';
+      tr.appendChild(wall);
+      return tr;
+    });
+    tbody.replaceChildren(...rows);
+  }
+
+  function cell(text, className) {
+    const td = document.createElement('td');
+    if (className) td.className = className;
+    td.textContent = text;
+    return td;
   }
 
   function formatWallTime(ms) {
@@ -429,9 +486,5 @@
     return `${timeStr}.${millis}`;
   }
 
-  function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
 
 })();

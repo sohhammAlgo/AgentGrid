@@ -1,6 +1,7 @@
 package agentgrid.control;
 
 import agentgrid.clock.TimeService;
+import agentgrid.node.ClockCoordinatorService;
 import agentgrid.node.ClusterConfig;
 import agentgrid.node.NodeAgent;
 import agentgrid.node.NodeElection;
@@ -131,6 +132,7 @@ public class ClusterMonitor {
     private volatile boolean burstActive = false;
     private volatile long electionFastUntilMs = 0;
     private volatile String desiredAlgorithm = "BULLY";
+    private volatile boolean desiredAutoSync = true;
     private volatile JobDirectory jobDirectory;
     private Thread pollingThread;
     private final Object burstLock = new Object();
@@ -169,6 +171,14 @@ public class ClusterMonitor {
 
     public void setDesiredAlgorithm(String algorithm) {
         this.desiredAlgorithm = algorithm;
+    }
+
+    public void setDesiredAutoSync(boolean enabled) {
+        this.desiredAutoSync = enabled;
+    }
+
+    public boolean getDesiredAutoSync() {
+        return desiredAutoSync;
     }
 
     public String getDesiredAlgorithm() {
@@ -316,6 +326,17 @@ public class ClusterMonitor {
                 } catch (Exception ignored) {
                 }
             }
+            // Align the auto clock-sync setting too (the node also got it at launch).
+            boolean auto = desiredAutoSync;
+            try {
+                Registry registry = callWithTimeout(() -> LocateRegistry.getRegistry("localhost", port));
+                ClockCoordinatorService clock = callWithTimeout(() -> (ClockCoordinatorService) registry.lookup("clock"));
+                callWithTimeout(() -> {
+                    clock.setAutoSync(auto);
+                    return null;
+                });
+            } catch (Exception ignored) {
+            }
             syncNode(agent);
             expectElectionActivity(5000);
         }
@@ -362,6 +383,27 @@ public class ClusterMonitor {
 
     public <T> T call(Callable<T> callable) throws Exception {
         return callWithTimeout(callable);
+    }
+
+    /** Like call(), with a caller-chosen timeout (for STRONG writes and Berkeley rounds). */
+    public <T> T call(Callable<T> callable, long timeoutMs) throws Exception {
+        Future<T> future = rmiPool.submit(callable);
+        try {
+            return future.get(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            throw new RuntimeException("RMI call timed out after " + timeoutMs + " ms", e);
+        } catch (Exception e) {
+            future.cancel(true);
+            throw e;
+        }
+    }
+
+    /** A remote object bound in a node's registry, looked up with the RMI timeout. */
+    public <T> T lookup(int nodeId, String name, Class<T> type) throws Exception {
+        int port = config.getNode(nodeId).getPort();
+        Registry registry = callWithTimeout(() -> LocateRegistry.getRegistry("localhost", port));
+        return type.cast(callWithTimeout(() -> registry.lookup(name)));
     }
 
     private List<EventLog.Event> pullTelemetry() {

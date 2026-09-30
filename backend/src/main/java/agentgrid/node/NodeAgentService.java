@@ -4,6 +4,7 @@ import agentgrid.clock.LamportClock;
 import agentgrid.common.Result;
 import agentgrid.common.Subtask;
 import agentgrid.orchestrator.Corpus;
+import agentgrid.orchestrator.Payload;
 import agentgrid.orchestrator.StrategyRegistry;
 
 import java.rmi.RemoteException;
@@ -47,6 +48,7 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
     private final transient StrategyRegistry strategies;
     private final transient ExecutorService threadPool;
     private transient volatile Runnable syncListener;
+    private transient volatile ClusterBlackboard blackboard;
 
     public NodeAgentService(String agentId) throws RemoteException {
         this(agentId, DEFAULT_POOL_SIZE);
@@ -188,13 +190,64 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
         }
 
         Result work = strategies.run(subtask);
+        String output = postFinding(subtask, work);
         simulateWork();
 
         long sendTime;
         synchronized (lamportClock) {
             sendTime = lamportClock.tick();
         }
-        return new Result(subtask.getSubtaskId(), agentId, work.getOutput(), sendTime, work.isSuccess());
+        return new Result(subtask.getSubtaskId(), agentId, output, sendTime, work.isSuccess());
+    }
+
+    /**
+     * If the subtask's payload names a blackboard key (bbKey), this worker writes its finding
+     * to its own blackboard replica under the job's consistency mode before answering, and the
+     * output becomes an envelope: result (the strategy's output, unchanged) plus the write's
+     * outcome. A refused or failed write is reported, never turned into a failed subtask.
+     * Workers record no per-write events for job keys; the leader summarises them per job.
+     */
+    private String postFinding(Subtask subtask, Result work) {
+        ClusterBlackboard bb = blackboard;
+        if (bb == null || !work.isSuccess()) {
+            return work.getOutput();
+        }
+        Payload in = Payload.decode(subtask.getPayload());
+        String key = in.get("bbKey");
+        if (key == null) {
+            return work.getOutput();
+        }
+        String mode = in.get("consistency", "EVENTUAL");
+        Payload envelope = new Payload().put("result", work.getOutput()).put("bbKey", key).put("bbMode", mode);
+        try {
+            BlackboardWriteOutcome o = bb.write(key, findingValue(subtask.getType(), work.getOutput()), mode);
+            envelope.put("bbStatus", o.getStatus().name()).put("bbLatencyMs", o.getLatencyMs());
+            if (o.getRecord() != null) {
+                envelope.put("bbStamp", o.getRecord().getTimestamp()).put("bbWriter", o.getRecord().getWriterNodeId());
+            }
+            envelope.put("bbMessage", o.getMessage());
+        } catch (RemoteException | RuntimeException e) {
+            envelope.put("bbStatus", "FAILED").put("bbMessage", String.valueOf(e.getMessage()));
+        }
+        return envelope.encode();
+    }
+
+    /** The text stored for a finding: "doc | title | sentences" for SUMMARIZE, the answer for SYNTHESIZE. */
+    static String findingValue(Subtask.Type type, String output) {
+        String value = output;
+        if (type == Subtask.Type.SUMMARIZE) {
+            Payload p = Payload.decode(output);
+            value = p.get("doc", "?") + " | " + p.get("title", "") + " | " + String.join(" ", p.list("s"));
+        }
+        if (value.length() > ClusterBlackboard.MAX_VALUE_CHARS) {
+            value = value.substring(0, ClusterBlackboard.MAX_VALUE_CHARS - 3) + "...";
+        }
+        return value;
+    }
+
+    /** The node's blackboard replica, where this worker posts the findings it produces. */
+    public void setBlackboard(ClusterBlackboard blackboard) {
+        this.blackboard = blackboard;
     }
 
     private void simulateWork() {

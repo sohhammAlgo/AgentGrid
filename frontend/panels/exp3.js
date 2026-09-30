@@ -11,7 +11,7 @@ window.AgentGridPanels.exp3 = {
         <div style="margin-bottom: 16px;">
           <h3 style="font-size: 16px; font-weight: 700;">Experiment 3: Physical Clock Drift & Berkeley Sync</h3>
           <p style="font-size: 13px; color: var(--text-muted);">
-            Manipulate artificial hardware clock skew across nodes and trigger round-trip compensated Berkeley algorithm synchronization to converge node physical clocks. Note: Berkeley converges nodes to their average, not to real time.
+            Manipulate artificial hardware clock skew across nodes and trigger round-trip compensated Berkeley algorithm synchronization to converge node physical clocks. The coordinator is the elected leader node, which is included in the average. Berkeley converges the nodes to their mean offset, not to real time, which is what LWW on the blackboard needs: the nodes agree with each other.
           </p>
         </div>
 
@@ -46,10 +46,10 @@ window.AgentGridPanels.exp3 = {
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div>
               <h4 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-dim);">
-                Berkeley Algorithm Coordinator
+                Berkeley Round on the Leader Node
               </h4>
               <span style="font-size: 12px; color: var(--text-muted);">
-                Polls active nodes, compensates RTT midpoint, and applies consensus corrections.
+                Asks the elected leader to poll every live node, compensate each reading for RTT, include itself in the average, and send each node its correction. Unreachable nodes are skipped. Returns 409 while no leader is agreed.
               </span>
             </div>
             <button id="exp3-sync-btn" class="btn btn-primary" style="background: linear-gradient(135deg, var(--accent-emerald), #059669);">

@@ -104,7 +104,7 @@ window.AgentGridPanels.exp6 = {
         }
         progress.textContent = `Done: ${rows.length} jobs.`;
       } catch (err) {
-        progress.innerHTML = `<span class="text-rose">${esc(err.message)}</span>`;
+        progress.replaceChildren(window.AgentGrid.h('span', { className: 'text-rose' }, err.message));
       } finally {
         runBtn.disabled = false;
       }

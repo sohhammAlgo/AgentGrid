@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /**
- * Thread-safe fixed-capacity (500) ring buffer for cluster control-plane events.
+ * Thread-safe fixed-capacity (5000) ring buffer for cluster control-plane events.
  * Manages the control-plane's Lamport clock and dispatches event notifications.
  *
  * Holds two kinds of events: those the control plane records itself (stamped by its own
@@ -105,7 +105,12 @@ public class EventLog {
         }
     }
 
-    private static final int CAPACITY = 500;
+    /**
+     * 5000 (up from 500): each job adds about 95 node events, and the Exp 5 tests run many jobs;
+     * a smaller ring evicted election and leader events the verifiers still need. Node
+     * buffers stay at 500 because the control plane drains them every cycle.
+     */
+    private static final int CAPACITY = 5000;
     private final Event[] buffer = new Event[CAPACITY];
     private final AtomicLong seqGenerator = new AtomicLong(0);
     private final LamportClock lamportClock = new LamportClock();

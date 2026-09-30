@@ -1,91 +1,135 @@
 // Job Console: submit a query to the orchestrator on the elected leader and watch the
-// pipeline (RETRIEVE -> RANK -> SUMMARIZE -> SYNTHESIZE) run across the nodes.
-// Renders only what /api/jobs and /api/election report.
+// pipeline (RETRIEVE -> RANK -> SUMMARIZE -> SYNTHESIZE) run across the nodes, plus the
+// findings the workers posted to the replicated blackboard.
+// Renders only what /api/jobs and /api/election report. Every piece of user or corpus text
+// (query, answer, keys, errors) is written with text nodes, never through innerHTML.
 
 (function() {
   const AG = window.AgentGrid;
+  const h = (...a) => AG.h(...a);
   let currentJobId = null;
   let pollToken = 0;
 
-  function esc(v) {
-    return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
-
   function render() {
     const root = document.getElementById('job-console');
-    root.innerHTML = `
-      <form id="job-form" class="job-form">
-        <input id="job-query" class="form-control" maxlength="500"
-               value="How do leader election and failure detectors handle a crashed node?">
-        <select id="job-policy" class="form-control">
-          <option value="WEIGHTED">WEIGHTED</option>
-          <option value="LEAST_LOADED">LEAST_LOADED</option>
-          <option value="ROUND_ROBIN">ROUND_ROBIN</option>
-        </select>
-        <button type="submit" id="job-submit" class="btn btn-primary">Submit</button>
-      </form>
-      <div class="job-grid">
-        <div>
-          <div class="job-status-row" id="job-status">No job selected.</div>
-          <div class="job-pipeline" id="job-pipeline"></div>
-          <div class="job-answer" id="job-answer"></div>
-        </div>
-        <div>
-          <h4 class="job-subhead">Recent jobs</h4>
-          <div class="job-recent" id="job-recent"></div>
-        </div>
-      </div>
-    `;
+    const query = h('input', { id: 'job-query', className: 'form-control', maxLength: 500,
+      value: 'How do leader election and failure detectors handle a crashed node?' });
+    const policy = h('select', { id: 'job-policy', className: 'form-control', title: 'Routing policy' },
+      ['WEIGHTED', 'LEAST_LOADED', 'ROUND_ROBIN'].map(p => h('option', { value: p }, p)));
+    const consistency = h('select', { id: 'job-consistency', className: 'form-control',
+      title: 'Consistency of the findings the workers post to the blackboard' },
+      [h('option', { value: 'EVENTUAL' }, 'EVENTUAL findings'), h('option', { value: 'STRONG' }, 'STRONG findings')]);
+    const submit = h('button', { type: 'submit', id: 'job-submit', className: 'btn btn-primary' }, 'Submit');
+    const form = h('form', { id: 'job-form', className: 'job-form' }, [query, policy, consistency, submit]);
 
-    document.getElementById('job-form').addEventListener('submit', async (e) => {
+    root.replaceChildren(
+      form,
+      h('div', { className: 'job-grid' }, [
+        h('div', {}, [
+          h('div', { className: 'job-status-row', id: 'job-status' }, 'No job selected.'),
+          h('div', { className: 'job-pipeline', id: 'job-pipeline' }),
+          h('div', { className: 'job-answer', id: 'job-answer' }),
+          h('div', { className: 'job-findings', id: 'job-findings' })
+        ]),
+        h('div', {}, [
+          h('h4', { className: 'job-subhead' }, 'Recent jobs'),
+          h('div', { className: 'job-recent', id: 'job-recent' })
+        ])
+      ])
+    );
+
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const btn = document.getElementById('job-submit');
-      btn.disabled = true;
+      submit.disabled = true;
       try {
-        const resp = await AG.submitJob(document.getElementById('job-query').value, document.getElementById('job-policy').value);
+        const resp = await AG.submitJob(query.value, policy.value, consistency.value);
         select(resp.jobId);
       } catch (err) {
-        document.getElementById('job-status').innerHTML = `<span class="text-rose">${esc(err.message)}</span>`;
+        showError(err.message);
       } finally {
-        btn.disabled = false;
+        submit.disabled = false;
       }
     });
   }
 
+  function showError(message) {
+    document.getElementById('job-status').replaceChildren(h('span', { className: 'text-rose' }, message));
+  }
+
   function statusBadge(status) {
-    return `<span class="job-badge job-${esc(status)}">${esc(status)}</span>`;
+    return h('span', { className: 'job-badge job-' + String(status).replace(/[^A-Z_]/g, '') }, status);
   }
 
   function renderJob(job) {
-    document.getElementById('job-status').innerHTML = `
-      ${statusBadge(job.status)}
-      <span class="mono-cell">${esc(job.jobId)}</span>
-      <span>policy <b>${esc(job.policy)}</b></span>
-      <span>leader node ${esc(job.leaderNode)}</span>
-      <span>${job.completedSubtasks}/${job.subtasks} subtasks</span>
-      <span>makespan ${job.makespanMs == null ? '—' : job.makespanMs + ' ms'}</span>
-      ${job.orphanAdoptedBy != null ? `<span>recorded as orphan by node ${esc(job.orphanAdoptedBy)}</span>` : ''}
-      ${job.error ? `<span class="text-rose">${esc(job.error)}</span>` : ''}
-    `;
-    document.getElementById('job-pipeline').innerHTML = (job.stages || []).map(stage => `
-      <div class="job-stage">
-        <div class="job-stage-head">
-          <span>${esc(stage.type)}</span>
-          <span class="job-stage-meta">${esc(stage.status)}${stage.durationMs != null ? ' · ' + stage.durationMs + ' ms' : ''}</span>
-        </div>
-        <div class="job-chips">
-          ${(stage.subtasks || []).map(s => `
-            <span class="job-chip chip-${esc(s.status)}" title="${esc(s.input)}&#10;dispatch L=${esc(s.dispatchLamport)} result L=${esc(s.resultLamport)} complete L=${esc(s.completeLamport)}">
-              ${esc(s.subtaskId)} → ${s.node == null ? '—' : 'N' + esc(s.node)}
-            </span>`).join('') || '<span class="job-stage-meta">no subtasks yet</span>'}
-        </div>
-      </div>
-    `).join('');
-    document.getElementById('job-answer').innerHTML = job.answer
-      ? `<h4 class="job-subhead">Answer</h4><p>${esc(job.answer)}</p>`
-      : (job.status === 'ORPHANED'
-          ? `<h4 class="job-subhead">Answer</h4><p class="text-rose">The leader stopped before this job finished; completed subtasks are kept above. Recovery is not implemented.</p>`
-          : '');
+    const parts = [
+      statusBadge(job.status),
+      h('span', { className: 'mono-cell' }, job.jobId),
+      h('span', {}, ['policy ', h('b', {}, job.policy)]),
+      h('span', {}, 'findings ' + (job.consistency || '—')),
+      h('span', {}, 'leader node ' + job.leaderNode),
+      h('span', {}, job.completedSubtasks + '/' + job.subtasks + ' subtasks'),
+      h('span', {}, 'makespan ' + (job.makespanMs == null ? '—' : job.makespanMs + ' ms'))
+    ];
+    if (job.orphanAdoptedBy != null) parts.push(h('span', {}, 'recorded as orphan by node ' + job.orphanAdoptedBy));
+    if (job.error) parts.push(h('span', { className: 'text-rose' }, job.error));
+    document.getElementById('job-status').replaceChildren(...parts);
+
+    document.getElementById('job-pipeline').replaceChildren(...(job.stages || []).map(stage => {
+      const chips = (stage.subtasks || []).map(s => h('span', {
+        className: 'job-chip chip-' + String(s.status).replace(/[^A-Z_]/g, ''),
+        title: (s.input || '') + '\ndispatch L=' + s.dispatchLamport + ' result L=' + s.resultLamport
+          + ' complete L=' + s.completeLamport
+      }, s.subtaskId + ' → ' + (s.node == null ? '—' : 'N' + s.node)));
+      return h('div', { className: 'job-stage' }, [
+        h('div', { className: 'job-stage-head' }, [
+          h('span', {}, stage.type),
+          h('span', { className: 'job-stage-meta' }, stage.status + (stage.durationMs != null ? ' · ' + stage.durationMs + ' ms' : ''))
+        ]),
+        h('div', { className: 'job-chips' }, chips.length ? chips : [h('span', { className: 'job-stage-meta' }, 'no subtasks yet')])
+      ]);
+    }));
+
+    const answer = document.getElementById('job-answer');
+    if (job.answer) {
+      answer.replaceChildren(h('h4', { className: 'job-subhead' }, 'Answer'), h('p', {}, job.answer));
+    } else if (job.status === 'ORPHANED') {
+      answer.replaceChildren(h('h4', { className: 'job-subhead' }, 'Answer'),
+        h('p', { className: 'text-rose' }, 'The leader stopped before this job finished; completed subtasks are kept above. Recovery is not implemented.'));
+    } else {
+      answer.replaceChildren();
+    }
+    renderFindings(job);
+  }
+
+  /** The findings (SUMMARIZE results) and answer each worker posted to the blackboard. */
+  function renderFindings(job) {
+    const box = document.getElementById('job-findings');
+    const rows = [];
+    (job.stages || []).forEach(stage => (stage.subtasks || []).forEach(s => {
+      if (!s.blackboard) return;
+      const bb = s.blackboard;
+      rows.push(h('tr', {}, [
+        h('td', { className: 'mono-cell' }, bb.key),
+        h('td', { className: 'mono-cell' }, 'N' + (bb.writer == null ? s.node : bb.writer)),
+        h('td', {}, h('span', { className: 'job-badge ' + (bb.stored ? 'job-COMPLETE' : 'job-FAILED') },
+          bb.status + (bb.stored ? '' : ' (not stored)'))),
+        h('td', { className: 'mono-cell' }, bb.latencyMs == null ? '—' : bb.latencyMs + ' ms'),
+        h('td', { className: 'mono-cell' }, bb.timestamp == null ? '—' : String(bb.timestamp))
+      ]));
+    }));
+    if (!rows.length) {
+      box.replaceChildren();
+      return;
+    }
+    const s = job.blackboard || {};
+    box.replaceChildren(
+      h('h4', { className: 'job-subhead' }, 'Findings on the blackboard (' + (s.consistency || '') + '): '
+        + (s.stored ?? '?') + '/' + (s.posted ?? '?') + ' stored'),
+      h('div', { className: 'exp4-table-wrap' }, h('table', { className: 'events-table' }, [
+        h('thead', {}, h('tr', {}, ['Key', 'Writer', 'Status', 'Write', 'LWW timestamp'].map(t => h('th', {}, t)))),
+        h('tbody', {}, rows)
+      ]))
+    );
   }
 
   async function select(jobId) {
@@ -96,9 +140,7 @@
         if (token === pollToken) renderJob(job);
       });
     } catch (err) {
-      if (token === pollToken) {
-        document.getElementById('job-status').innerHTML = `<span class="text-rose">${esc(err.message)}</span>`;
-      }
+      if (token === pollToken) showError(err.message);
     }
     refreshRecent();
   }
@@ -108,23 +150,22 @@
       const jobs = await AG.listJobs();
       const el = document.getElementById('job-recent');
       if (!jobs.length) {
-        el.innerHTML = '<span class="job-stage-meta">No jobs yet.</span>';
+        el.replaceChildren(h('span', { className: 'job-stage-meta' }, 'No jobs yet.'));
         return;
       }
-      el.innerHTML = `
-        <table class="events-table">
-          <thead><tr><th>Job</th><th>Policy</th><th>Status</th><th>Makespan</th></tr></thead>
-          <tbody>
-            ${jobs.slice(0, 12).map(j => `
-              <tr class="job-row ${j.jobId === currentJobId ? 'selected' : ''}" data-job="${esc(j.jobId)}">
-                <td class="mono-cell">${esc(j.jobId)}</td>
-                <td class="mono-cell">${esc(j.policy)}</td>
-                <td>${statusBadge(j.status)}</td>
-                <td class="mono-cell">${j.makespanMs == null ? '—' : j.makespanMs + ' ms'}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>`;
-      el.querySelectorAll('.job-row').forEach(row => row.addEventListener('click', () => select(row.dataset.job)));
+      const rows = jobs.slice(0, 12).map(j => h('tr', {
+        className: 'job-row' + (j.jobId === currentJobId ? ' selected' : ''),
+        onclick: () => select(j.jobId)
+      }, [
+        h('td', { className: 'mono-cell' }, j.jobId),
+        h('td', { className: 'mono-cell' }, j.policy + (j.consistency ? ' / ' + j.consistency : '')),
+        h('td', {}, statusBadge(j.status)),
+        h('td', { className: 'mono-cell' }, j.makespanMs == null ? '—' : j.makespanMs + ' ms')
+      ]));
+      el.replaceChildren(h('table', { className: 'events-table' }, [
+        h('thead', {}, h('tr', {}, ['Job', 'Policy', 'Status', 'Makespan'].map(t => h('th', {}, t)))),
+        h('tbody', {}, rows)
+      ]));
     } catch (ignored) {}
   }
 

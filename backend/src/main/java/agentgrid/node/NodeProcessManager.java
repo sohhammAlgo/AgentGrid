@@ -1,6 +1,8 @@
 package agentgrid.node;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -20,16 +22,43 @@ public class NodeProcessManager {
     private final Map<Integer, Process> processes = new ConcurrentHashMap<>();
     private volatile String electionAlgorithm = "BULLY";
 
+    private volatile boolean clockAutoSync = true;
+
     /** Election algorithm passed to nodes started from now on. */
     public void setElectionAlgorithm(String algorithm) {
         this.electionAlgorithm = algorithm;
     }
 
+    /** Auto clock sync setting (periodic and rejoin Berkeley rounds) passed to nodes started from now on. */
+    public void setClockAutoSync(boolean enabled) {
+        this.clockAutoSync = enabled;
+    }
+
     public synchronized Process start(int nodeId) throws IOException {
-        // Kill existing process if currently tracked and alive
+        // Kill existing process if currently tracked and alive, and wait until it has exited
         Process existing = processes.get(nodeId);
         if (existing != null && existing.isAlive()) {
             existing.destroyForcibly();
+            awaitExit(existing);
+        }
+
+        // A killed JVM can take a moment to release its registry port, above all when several
+        // nodes are restarted at once. A JVM started before that fails to bind and exits, so
+        // wait for the port and refuse to start one that is doomed.
+        int port = ClusterConfig.load().getNode(nodeId).getPort();
+        long t0 = System.currentTimeMillis();
+        while (!portFree(port)) {
+            if (System.currentTimeMillis() - t0 >= PORT_WAIT_MS) {
+                System.err.println("[NodeProcessManager] node " + nodeId + ": port " + port
+                        + " still in use after " + PORT_WAIT_MS + " ms; not starting it");
+                throw new IOException("port " + port + " is still in use " + PORT_WAIT_MS
+                        + " ms after node " + nodeId + " was stopped; the node was not started");
+            }
+            sleep(PORT_POLL_MS);
+        }
+        long waited = System.currentTimeMillis() - t0;
+        if (waited > 0) {
+            System.out.println("[NodeProcessManager] node " + nodeId + ": port " + port + " free after " + waited + " ms");
         }
 
         Path javaBin = resolveJavaExecutable();
@@ -48,6 +77,7 @@ public class NodeProcessManager {
                 "-cp",
                 classpath,
                 "-Dagentgrid.election.algorithm=" + electionAlgorithm,
+                "-Dagentgrid.clock.auto=" + clockAutoSync,
                 "agentgrid.node.NodeMain",
                 String.valueOf(nodeId)
         );
@@ -63,14 +93,41 @@ public class NodeProcessManager {
         Process proc = processes.get(nodeId);
         if (proc != null && proc.isAlive()) {
             proc.destroyForcibly();
-            try {
-                proc.waitFor(1, TimeUnit.SECONDS);
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-            }
+            awaitExit(proc);
             return true;
         }
         return false;
+    }
+
+    static final long EXIT_WAIT_MS = 5000;
+    static final long PORT_WAIT_MS = 5000;
+    static final long PORT_POLL_MS = 50;
+
+    private static void awaitExit(Process proc) {
+        try {
+            proc.waitFor(EXIT_WAIT_MS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    /** True if nothing listens on port: a wildcard bind succeeds (and is released at once). */
+    static boolean portFree(int port) {
+        try (ServerSocket probe = new ServerSocket()) {
+            probe.setReuseAddress(false);
+            probe.bind(new InetSocketAddress(port));
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    private static void sleep(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     public synchronized Process restart(int nodeId) throws IOException {

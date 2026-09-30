@@ -58,18 +58,60 @@ public class ClusterConfig {
     /** Default per-subtask simulated work delay; see getSimulatedWorkMs(). */
     public static final long DEFAULT_SIMULATED_WORK_MS = 150L;
 
+    /** Default simulated propagation lag of EVENTUAL blackboard writes. */
+    public static final long DEFAULT_EVENTUAL_LAG_MS = 400L;
+    /** Default interval between blackboard anti-entropy pulls. */
+    public static final long DEFAULT_ANTI_ENTROPY_MS = 2000L;
+    /** Default interval of the leader's periodic Berkeley round (0 disables it). */
+    public static final long DEFAULT_BERKELEY_INTERVAL_MS = 30000L;
+
     private final Map<Integer, NodeConfig> nodes;
     private final List<Integer> nodeIds;
     private final long simulatedWorkMs;
+    private final long eventualLagMs;
+    private final long antiEntropyMs;
+    private final long berkeleyIntervalMs;
 
     public ClusterConfig(Map<Integer, NodeConfig> nodes) {
         this(nodes, DEFAULT_SIMULATED_WORK_MS);
     }
 
     public ClusterConfig(Map<Integer, NodeConfig> nodes, long simulatedWorkMs) {
+        this(nodes, simulatedWorkMs, DEFAULT_EVENTUAL_LAG_MS, DEFAULT_ANTI_ENTROPY_MS, DEFAULT_BERKELEY_INTERVAL_MS);
+    }
+
+    public ClusterConfig(Map<Integer, NodeConfig> nodes, long simulatedWorkMs, long eventualLagMs,
+                         long antiEntropyMs, long berkeleyIntervalMs) {
         this.nodes = Collections.unmodifiableMap(new LinkedHashMap<>(nodes));
         this.nodeIds = Collections.unmodifiableList(new ArrayList<>(nodes.keySet()));
         this.simulatedWorkMs = simulatedWorkMs;
+        this.eventualLagMs = Math.max(0, eventualLagMs);
+        this.antiEntropyMs = Math.max(0, antiEntropyMs);
+        this.berkeleyIntervalMs = Math.max(0, berkeleyIntervalMs);
+    }
+
+    /**
+     * SIMULATED delay before an EVENTUAL blackboard write is pushed to peers (property
+     * "eventualLagMs"). On one machine replication takes about a millisecond, so without it
+     * the staleness window of eventual consistency would be invisible.
+     */
+    public long getEventualLagMs() {
+        return eventualLagMs;
+    }
+
+    /** Interval of each node's blackboard anti-entropy pull (property "blackboardAntiEntropyMs", 0 disables). */
+    public long getAntiEntropyMs() {
+        return antiEntropyMs;
+    }
+
+    /** Interval of the leader's periodic Berkeley round (property "berkeleyIntervalMs", 0 disables). */
+    public long getBerkeleyIntervalMs() {
+        return berkeleyIntervalMs;
+    }
+
+    /** Nodes needed for a live majority: floor(n / 2) + 1 (3 of 5). */
+    public int majority() {
+        return nodes.size() / 2 + 1;
     }
 
     /**
@@ -201,6 +243,14 @@ public class ClusterConfig {
 
         String work = System.getProperty("agentgrid.simulatedWorkMs",
                 props.getProperty("simulatedWorkMs", String.valueOf(DEFAULT_SIMULATED_WORK_MS)));
-        return new ClusterConfig(nodes, Long.parseLong(work.trim()));
+        return new ClusterConfig(nodes, Long.parseLong(work.trim()),
+                longProperty(props, "eventualLagMs", DEFAULT_EVENTUAL_LAG_MS),
+                longProperty(props, "blackboardAntiEntropyMs", DEFAULT_ANTI_ENTROPY_MS),
+                longProperty(props, "berkeleyIntervalMs", DEFAULT_BERKELEY_INTERVAL_MS));
+    }
+
+    private static long longProperty(Properties props, String name, long fallback) {
+        String v = System.getProperty("agentgrid." + name, props.getProperty(name));
+        return v == null || v.isBlank() ? fallback : Long.parseLong(v.trim());
     }
 }

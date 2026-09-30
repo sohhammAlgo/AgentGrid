@@ -3,6 +3,7 @@ package agentgrid.control;
 import agentgrid.clock.TimeService;
 import agentgrid.common.Result;
 import agentgrid.common.Subtask;
+import agentgrid.node.ClockCoordinatorService;
 import agentgrid.node.ClusterConfig;
 import agentgrid.node.NodeAgent;
 import agentgrid.node.NodeProcessManager;
@@ -49,6 +50,7 @@ public class ControlPlaneMain {
     private final EventLog eventLog;
     private final ClusterMonitor monitor;
     private final JobDirectory jobDirectory;
+    private final BlackboardApi blackboardApi;
     private final HttpServer server;
     private final Path frontendDir;
 
@@ -58,6 +60,7 @@ public class ControlPlaneMain {
         this.eventLog = new EventLog();
         this.monitor = new ClusterMonitor(config, eventLog);
         this.jobDirectory = new JobDirectory(config, monitor);
+        this.blackboardApi = new BlackboardApi(config, monitor);
         this.monitor.setJobDirectory(jobDirectory);
 
         this.frontendDir = resolveFrontendDirectory();
@@ -126,6 +129,9 @@ public class ControlPlaneMain {
         server.createContext("/api/election/algorithm", this::handleElectionAlgorithm);
         server.createContext("/api/election/start", this::handleElectionStart);
         server.createContext("/api/jobs", this::handleJobs);
+        server.createContext("/api/clock/auto", this::handleClockAuto);
+        server.createContext("/api/blackboard", this::handleBlackboard);
+        server.createContext("/api/blackboard/write", this::handleBlackboardWrite);
         server.createContext("/", this::handleStatic);
     }
 
@@ -143,6 +149,7 @@ public class ControlPlaneMain {
                 Map.of("id", "exp2", "title", "Threads"),
                 Map.of("id", "exp3", "title", "Clocks"),
                 Map.of("id", "exp4", "title", "Election"),
+                Map.of("id", "exp5", "title", "Blackboard"),
                 Map.of("id", "exp6", "title", "Load Balancing")
         );
         sendJsonResponse(exchange, 200, modules);
@@ -296,6 +303,11 @@ public class ControlPlaneMain {
                 monitor.pollNode(nodeId);
                 sendJsonResponse(exchange, 200, Map.of("success", true, "node", nodeId, "status", "restarted", "pid", p.pid()));
             } catch (Exception e) {
+                // The old process is stopped and no new one was started (e.g. its port was
+                // still held): record it and show the node as down.
+                eventLog.record("NODE_RESTART_FAILED", nodeId, "Node " + nodeId + " was not restarted: " + e.getMessage(),
+                        System.currentTimeMillis());
+                monitor.pollNode(nodeId);
                 sendError(exchange, 500, "Failed to restart node " + nodeId + ": " + e.getMessage());
             }
         } else {
@@ -473,6 +485,10 @@ public class ControlPlaneMain {
     }
 
     private void handleClockDrift(HttpExchange exchange) throws IOException {
+        if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
+            sendClockOffsets(exchange);
+            return;
+        }
         if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) {
             sendMethodNotAllowed(exchange);
             return;
@@ -710,8 +726,14 @@ public class ControlPlaneMain {
             sendError(exchange, 400, "Field 'policy' must be \"ROUND_ROBIN\", \"LEAST_LOADED\" or \"WEIGHTED\"");
             return;
         }
+        Object c = req.get("consistency");
+        String consistency = c == null ? "EVENTUAL" : String.valueOf(c);
+        if (!consistency.equals("STRONG") && !consistency.equals("EVENTUAL")) {
+            sendError(exchange, 400, "Field 'consistency' must be \"STRONG\" or \"EVENTUAL\" (default EVENTUAL)");
+            return;
+        }
         try {
-            sendJsonResponse(exchange, 200, jobDirectory.submit(query, policy.name()));
+            sendJsonResponse(exchange, 200, jobDirectory.submit(query, policy.name(), consistency));
         } catch (JobDirectory.ApiException e) {
             sendError(exchange, e.getStatus(), e.getMessage());
         }
@@ -739,33 +761,185 @@ public class ControlPlaneMain {
         }
         if (!validatePostHeaders(exchange)) return;
 
-        List<Integer> upNodes = new ArrayList<>();
-        for (ClusterMonitor.NodeStatus status : monitor.getSnapshot()) {
-            if (status.isUp()) {
-                upNodes.add(status.getId());
-            }
-        }
-
-        if (upNodes.isEmpty()) {
-            sendError(exchange, 503, "No online nodes available for Berkeley synchronization");
+        // The leader coordinates Berkeley rounds (it is included in the average); the control
+        // plane only asks it to run one. The leader records the CLOCK_SYNC event.
+        Object leader = monitor.getElectionTracker().toMap().get("leaderId");
+        if (!(leader instanceof Integer)) {
+            sendError(exchange, 409, "No agreed leader: the leader coordinates clock sync; retry after the election");
             return;
         }
-
+        int leaderId = (Integer) leader;
         try {
-            BerkeleyRound.SyncResult result = BerkeleyRound.execute(config, upNodes);
-
-            eventLog.record("CLOCK_SYNC", 0,
-                    "Berkeley synchronization across " + result.getNodeCount() + " nodes: spread "
-                            + result.getSpreadBefore() + " ms -> " + result.getSpreadAfter() + " ms",
-                    System.currentTimeMillis());
-
+            ClockCoordinatorService clock = monitor.lookup(leaderId, "clock", ClockCoordinatorService.class);
+            Map<String, Object> result = monitor.call(() -> clock.runSyncRound("manual"), 8000);
             monitor.pollAll();
-
-            sendJsonResponse(exchange, 200, result.toMap());
-
+            sendJsonResponse(exchange, 200, result);
         } catch (Exception e) {
-            sendError(exchange, 500, "Berkeley synchronization round failed: " + e.getMessage());
+            sendError(exchange, 503, "Leader node " + leaderId + " could not run a Berkeley round: " + e.getMessage());
         }
+    }
+
+    /** GET: the auto clock-sync setting. POST {"enabled": bool}: set it on every UP node and for restarts. */
+    private void handleClockAuto(HttpExchange exchange) throws IOException {
+        if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
+            Map<String, Object> resp = new LinkedHashMap<>();
+            resp.put("enabled", monitor.getDesiredAutoSync());
+            resp.put("berkeleyIntervalMs", config.getBerkeleyIntervalMs());
+            sendJsonResponse(exchange, 200, resp);
+            return;
+        }
+        if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        if (!validatePostHeaders(exchange)) return;
+        Map<String, Object> req = readJsonBody(exchange);
+        if (req == null) return;
+        if (!(req.get("enabled") instanceof Boolean)) {
+            sendError(exchange, 400, "Field 'enabled' must be true or false");
+            return;
+        }
+        boolean enabled = (Boolean) req.get("enabled");
+        monitor.setDesiredAutoSync(enabled);
+        processManager.setClockAutoSync(enabled);
+        List<Integer> applied = new ArrayList<>();
+        List<Integer> failed = new ArrayList<>();
+        for (ClusterMonitor.NodeStatus status : monitor.getSnapshot()) {
+            if (!status.isUp()) {
+                continue;
+            }
+            try {
+                ClockCoordinatorService clock = monitor.lookup(status.getId(), "clock", ClockCoordinatorService.class);
+                monitor.call(() -> {
+                    clock.setAutoSync(enabled);
+                    return null;
+                });
+                applied.add(status.getId());
+            } catch (Exception e) {
+                failed.add(status.getId());
+            }
+        }
+        eventLog.record("CLOCK_AUTO_SET", 0, "Auto clock sync (periodic and rejoin) " + (enabled ? "enabled" : "disabled")
+                + " on nodes " + applied + (failed.isEmpty() ? "" : " (failed: " + failed + ")"), System.currentTimeMillis());
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("enabled", enabled);
+        resp.put("berkeleyIntervalMs", config.getBerkeleyIntervalMs());
+        resp.put("applied", applied);
+        resp.put("failed", failed);
+        sendJsonResponse(exchange, 200, resp);
+    }
+
+    /** Current clock offset of every node against the control plane's clock (RTT-compensated). */
+    private void sendClockOffsets(HttpExchange exchange) throws IOException {
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (ClusterMonitor.NodeStatus status : monitor.getSnapshot()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("node", status.getId());
+            m.put("up", status.isUp());
+            m.put("configuredDriftMs", config.getNode(status.getId()).getClockDriftMs());
+            Long offset = null;
+            if (status.isUp()) {
+                try {
+                    TimeService ts = monitor.lookup(status.getId(), "time", TimeService.class);
+                    long t0 = System.currentTimeMillis();
+                    long nodeTime = monitor.call(ts::getTime);
+                    long t1 = System.currentTimeMillis();
+                    offset = nodeTime - (t0 + (t1 - t0) / 2);
+                } catch (Exception ignored) {
+                    // reported as null
+                }
+            }
+            m.put("offsetMs", offset);
+            list.add(m);
+        }
+        sendJsonResponse(exchange, 200, list);
+    }
+
+    // =========================================================================
+    // BLACKBOARD (Exp 5)
+    // =========================================================================
+
+    private void handleBlackboard(HttpExchange exchange) throws IOException {
+        String path = exchange.getRequestURI().getPath();
+        if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        if (path.equals("/api/blackboard") || path.equals("/api/blackboard/")) {
+            String prefix = queryParam(exchange, "prefix");
+            sendJsonResponse(exchange, 200, blackboardApi.overview(prefix == null ? "" : prefix));
+        } else if (path.equals("/api/blackboard/metrics")) {
+            sendJsonResponse(exchange, 200, blackboardApi.metrics());
+        } else if (path.equals("/api/blackboard/read")) {
+            String node = queryParam(exchange, "node");
+            String key = queryParam(exchange, "key");
+            if (node == null || key == null || key.isEmpty()) {
+                sendError(exchange, 400, "Query parameters 'node' and 'key' are required");
+                return;
+            }
+            try {
+                sendJsonResponse(exchange, 200, blackboardApi.read(Integer.parseInt(node.trim()), key));
+            } catch (NumberFormatException e) {
+                sendError(exchange, 400, "Parameter 'node' must be an integer");
+            } catch (JobDirectory.ApiException e) {
+                sendError(exchange, e.getStatus(), e.getMessage());
+            }
+        } else {
+            sendError(exchange, 404, "Unknown blackboard endpoint: " + path);
+        }
+    }
+
+    private void handleBlackboardWrite(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        if (!validatePostHeaders(exchange)) return;
+        Map<String, Object> req = readJsonBody(exchange);
+        if (req == null) return;
+        int node;
+        try {
+            node = ((Number) req.get("node")).intValue();
+        } catch (Exception e) {
+            sendError(exchange, 400, "Field 'node' must be an integer");
+            return;
+        }
+        Object key = req.get("key");
+        Object value = req.get("value");
+        Object mode = req.get("mode");
+        if (!(key instanceof String) || ((String) key).isEmpty() || ((String) key).length() > agentgrid.node.ClusterBlackboard.MAX_KEY_CHARS) {
+            sendError(exchange, 400, "Field 'key' must be a string of 1-" + agentgrid.node.ClusterBlackboard.MAX_KEY_CHARS + " characters");
+            return;
+        }
+        if (!(value instanceof String) || ((String) value).length() > agentgrid.node.ClusterBlackboard.MAX_VALUE_CHARS) {
+            sendError(exchange, 400, "Field 'value' must be a string of at most " + agentgrid.node.ClusterBlackboard.MAX_VALUE_CHARS + " characters");
+            return;
+        }
+        if (!"STRONG".equals(mode) && !"EVENTUAL".equals(mode)) {
+            sendError(exchange, 400, "Field 'mode' must be \"STRONG\" or \"EVENTUAL\"");
+            return;
+        }
+        try {
+            sendJsonResponse(exchange, 200, blackboardApi.write(node, (String) key, (String) value, (String) mode));
+        } catch (JobDirectory.ApiException e) {
+            sendError(exchange, e.getStatus(), e.getMessage());
+        }
+    }
+
+    /** A URL-decoded query parameter, or null. */
+    private static String queryParam(HttpExchange exchange, String name) {
+        String query = exchange.getRequestURI().getRawQuery();
+        if (query == null) {
+            return null;
+        }
+        for (String part : query.split("&")) {
+            int eq = part.indexOf('=');
+            String k = eq < 0 ? part : part.substring(0, eq);
+            if (k.equals(name)) {
+                return java.net.URLDecoder.decode(eq < 0 ? "" : part.substring(eq + 1), StandardCharsets.UTF_8);
+            }
+        }
+        return null;
     }
 
     // =========================================================================

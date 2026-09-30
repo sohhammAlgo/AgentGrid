@@ -581,7 +581,7 @@ body {
 
 .job-form {
   display: grid;
-  grid-template-columns: 1fr 180px auto;
+  grid-template-columns: 1fr 160px 170px auto;
   gap: 10px;
   margin-bottom: 14px;
 }
@@ -711,6 +711,16 @@ body {
 .type-JOB_FAILED, .type-JOB_ORPHANED { background: rgba(244, 63, 94, 0.2); color: #fb7185; }
 .type-STAGE_STARTED, .type-STAGE_COMPLETED { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
 .type-SUBTASK_DISPATCHED, .type-SUBTASK_COMPLETED { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; }
+
+/* Blackboard */
+.bb-stale { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
+.bb-missing { background: rgba(244, 63, 94, 0.12); color: #fb7185; }
+.job-findings { margin-top: 8px; }
+.type-BLACKBOARD_WRITE, .type-BLACKBOARD_APPLIED, .type-BLACKBOARD_SYNC { background: rgba(6, 182, 212, 0.18); color: #22d3ee; }
+.type-BLACKBOARD_REFUSED { background: rgba(244, 63, 94, 0.2); color: #fb7185; }
+.type-LWW_CONFLICT_RESOLVED { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.type-BLACKBOARD_JOB_FINDINGS { background: rgba(16, 185, 129, 0.18); color: #34d399; }
+.type-CLOCK_AUTO_SET { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
 
 /* Leader election */
 .node-badges {

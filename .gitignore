@@ -2,6 +2,10 @@ docs
 
 # Build output
 build/
+backend/build/
 *.class
+
+# Control plane / node logs
+backend/*.log
 
 AgentGrid-Lite-PRD.md

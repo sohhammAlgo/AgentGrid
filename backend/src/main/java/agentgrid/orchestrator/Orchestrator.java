@@ -173,7 +173,7 @@ public final class Orchestrator extends UnicastRemoteObject implements Orchestra
     // =========================================================================
 
     @Override
-    public String submit(String query, String policy) throws RemoteException {
+    public String submit(String query, String policy, String consistency) throws RemoteException {
         if (!active) {
             throw new RemoteException("node " + nodeId + " is not the leader; its orchestrator is inactive");
         }
@@ -181,17 +181,23 @@ public final class Orchestrator extends UnicastRemoteObject implements Orchestra
         if (p == null) {
             throw new RemoteException("unknown policy: " + policy);
         }
+        String mode = consistency == null ? "EVENTUAL" : consistency.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!mode.equals("STRONG") && !mode.equals("EVENTUAL")) {
+            throw new RemoteException("unknown consistency: " + consistency);
+        }
         String jobId = "job-" + nodeId + "-" + incarnation + "-" + sequence.incrementAndGet();
-        Job job = new Job(jobId, query, p.name(), nodeId, System.currentTimeMillis());
+        Job job = new Job(jobId, query, p.name(), mode, nodeId, System.currentTimeMillis());
         synchronized (jobs) {
             jobs.put(jobId, job);
             trim();
         }
+        String shown = query.length() <= 80 ? query : query.substring(0, 80) + "...";
         Map<String, Object> f = new LinkedHashMap<>();
         f.put("jobId", jobId);
         f.put("policy", p.name());
-        f.put("query", query);
-        events.record("JOB_SUBMITTED", jobId + " submitted (" + p.name() + "): " + query, f);
+        f.put("consistency", mode);
+        f.put("query", shown);
+        events.record("JOB_SUBMITTED", jobId + " submitted (" + p.name() + ", " + mode + "): " + shown, f);
         queue.add(job);
         return jobId;
     }

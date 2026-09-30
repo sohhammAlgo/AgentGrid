@@ -257,9 +257,10 @@ binds these services in its own RMI registry:
 | `agent` | Worker: runs subtasks on a fixed thread pool (Exp 1, 2), dispatching by type to the stage strategies in `agentgrid.orchestrator` |
 | `time` | Drifting physical clock (Exp 3) |
 | `election-node-<id>` | Bully / Ring leader election with a heartbeat failure detector (Exp 4) |
-| `blackboard-node-node-<id>` | Replicated blackboard (Exp 5; not yet used by the cluster) |
+| `blackboard-node-node-<id>` | Replicated blackboard (Exp 5): `ClusterBlackboardService`, which also serves the submitted `ReplicationService` methods |
 | `telemetry` | The node's event buffer, pulled by the control plane |
 | `orchestrator` | Job orchestrator; active only on the elected leader |
+| `clock` | Berkeley clock-sync coordinator; runs rounds only on the elected leader |
 
 ### Configuration
 [`backend/cluster.properties`](backend/cluster.properties):
@@ -269,6 +270,14 @@ binds these services in its own RMI registry:
 - `simulatedWorkMs=150`: delay each node adds to every subtask. The real stage work is
   sub-millisecond, so without it the thread-pool and load-balancing effects would not show.
   Override with `-Dagentgrid.simulatedWorkMs=<ms>`.
+- `eventualLagMs=400`: a **simulated** delay before an EVENTUAL blackboard write is pushed to
+  peers. On one machine replication takes about a millisecond, so without it the staleness
+  window would be invisible.
+- `blackboardAntiEntropyMs=2000`: how often each replica pulls newer records from a random peer.
+- `berkeleyIntervalMs=30000`: how often the leader runs a Berkeley round (0 disables the
+  periodic round).
+
+Each of these can also be overridden with `-Dagentgrid.<name>=<value>`.
 
 The document corpus that jobs search is `backend/src/main/resources/corpus/` (40 short
 documents listed in `index.txt`); the build copies it onto the classpath.
@@ -292,8 +301,11 @@ cd backend
 java -cp build/classes agentgrid.control.ControlPlaneMain
 ```
 It starts nodes 1–5 as child JVM processes (each with `-Xms16m -Xmx256m`), polls them over
-RMI, pulls their events, and serves the API and the dashboard. `Ctrl-C` stops the nodes too.
-Node output goes to `backend/build/logs/node-<id>.log`.
+RMI, pulls their events, and serves the API and the dashboard. `Ctrl-C` stops the nodes too
+(a shutdown hook). A control plane that is force-killed (Task Manager "End task",
+`taskkill /F`, `Stop-Process -Force`) cannot run that hook, so its nodes keep running and hold
+ports 1601–1605; stop them with `backend\stop-cluster.ps1`, which stops only `NodeMain` and
+`ControlPlaneMain` java processes. Node output goes to `backend/build/logs/node-<id>.log`.
 
 Dashboard: **http://127.0.0.1:8080/** (the server binds to 127.0.0.1 only).
 
@@ -308,7 +320,7 @@ malformed or invalid input returns 400. Errors are `{"error": "...", "status": N
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| GET | `/api/modules` | | Dashboard modules: exp1–exp4, exp6 |
+| GET | `/api/modules` | | Dashboard modules: exp1–exp6 |
 | GET | `/api/cluster` | | Per node: `id, port, up, poolSize, queueDepth, lamport, clockOffsetMs, bindings, leaderView, isLeader` |
 | GET | `/api/events?since=<seq>` | | Merged event log (control-plane and node events) after `seq`: `seq, type, node, details, lamport, nodeWallMs, trueMs`, plus `nodeSeq` and `fields` for node events |
 | GET | `/api/stream` | | Server-sent events: `cluster` and `election` snapshots every 1 s (0.2 s during elections and jobs), and every new `event` |
@@ -316,11 +328,18 @@ malformed or invalid input returns 400. Errors are `{"error": "...", "status": N
 | POST | `/api/nodes/{id}/restart` | `{}` | Restarts the node process |
 | POST | `/api/rmi/invoke` | `{"node": 1, "type": "SUMMARIZE", "count": 12}` | Runs `count` concurrent `execute()` calls on one node (Exp 1, 2) |
 | POST | `/api/clock/drift` | `{"node": 1, "deltaMs": 5000}` | Shifts a node's clock (Exp 3) |
-| POST | `/api/clock/sync` | `{}` | One Berkeley round over the UP nodes (Exp 3) |
+| GET | `/api/clock/drift` | | Per node: `node, up, configuredDriftMs, offsetMs` (current offset against the control plane's clock, RTT-compensated) |
+| POST | `/api/clock/sync` | `{}` | Asks the elected leader to run one Berkeley round now: `spreadBefore, spreadAfter, averageOffset, nodeCount, corrections, coordinator, skipped`; **409** while no leader is agreed |
+| GET | `/api/clock/auto` | | `{enabled, berkeleyIntervalMs}` |
+| POST | `/api/clock/auto` | `{"enabled": false}` | Turns the leader's periodic round and the rejoin sync off (or on) on every UP node and for restarted nodes; the manual round still works |
+| POST | `/api/blackboard/write` | `{"node": 2, "key": "k", "value": "v", "mode": "STRONG"}` (or `EVENTUAL`) | Writes through that node: `status` (`STORED, STORED_DEGRADED, REFUSED, FAILED_PARTIAL` for STRONG, `ACCEPTED` for EVENTUAL), `stored, timestamp, writer, liveAtCheck, acked, failed, latencyMs, message`. Key 1–128 characters, value at most 1024, else 400 |
+| GET | `/api/blackboard/read?node=2&key=k` | | That replica's record: `ready, clockSynced, found, value, timestamp, writer, version, verdict` (`FRESH, STALE, NOT_READY, UNCHECKED`) |
+| GET | `/api/blackboard?prefix=` | | Every replica's records under the prefix (each marked `stale` if another replica holds a newer one), with `ready, clockSynced, snapshotSource, pendingPropagation, missingKeys` per node |
+| GET | `/api/blackboard/metrics` | | STRONG stored / degraded / refused / failed-partial counts and median write latency; EVENTUAL accepted, pending propagation, retries, anti-entropy and median latency; stale / fresh / not-ready reads |
 | GET | `/api/election` | | `algorithm, views, agreed, leaderId, backupId, lastEpisode {startTrueMs, endTrueMs, convergenceMs, messages, byKind, leaderId, initiators, table}` |
 | POST | `/api/election/algorithm` | `{"name": "BULLY"}` or `"RING"` | Switches the algorithm on all UP nodes |
 | POST | `/api/election/start` | `{"node": 1}` | Starts an election on one node |
-| POST | `/api/jobs` | `{"query": "...", "policy": "ROUND_ROBIN"}` (or `LEAST_LOADED`, `WEIGHTED`) | `{jobId, leader, status}`; 503 if no leader is agreed |
+| POST | `/api/jobs` | `{"query": "...", "policy": "ROUND_ROBIN", "consistency": "EVENTUAL"}` (policy `LEAST_LOADED` / `WEIGHTED`; consistency `STRONG`, default `EVENTUAL`) | `{jobId, leader, consistency, status}`; 503 if no leader is agreed |
 | GET | `/api/jobs` | | Recent jobs: `jobId, query, policy, status, leaderNode, makespanMs, subtasks, completedSubtasks, ...` |
 | GET | `/api/jobs/{id}` | | The task graph: status (`QUEUED, RUNNING, COMPLETE, FAILED, ORPHANED`), answer, per-node subtask counts and peak queue depth, and every stage's subtasks with node, status and dispatch / result / completion Lamport times |
 
@@ -332,18 +351,86 @@ Each stage starts after the previous one completes. Subtasks are routed with the
 `agentgrid.balancer` policies. If the leader is killed mid-job, the job becomes ORPHANED
 (its completed subtasks are kept) and the new leader accepts new jobs; it is not resumed.
 
+Each worker that runs a SUMMARIZE subtask posts its finding to its own blackboard replica as
+`job/<jobId>/finding/<subtaskId>`, and the SYNTHESIZE worker posts the answer as
+`job/<jobId>/answer`, under the job's `consistency`. The job view shows every finding as stored
+or not stored; a refused or failed write never fails the job. The leader records one
+`BLACKBOARD_JOB_FINDINGS` event per job (no event per write).
+
+### Replicated blackboard (Exp 5)
+Every node keeps a replica of `{key, value, timestamp, writerNodeId, version}` records. The
+dashboard tab "Blackboard" shows every replica side by side.
+
+- **STRONG** is synchronous replication to every *live* replica, gated by a live majority of the
+  configured cluster (3 of 5). The node that takes the write probes which nodes are live
+  (in parallel, 500 ms cap); with fewer than 3 it refuses and writes nothing anywhere.
+  Otherwise it writes to every live node and returns after they acknowledge. Dead nodes catch
+  up when they restart. A node can die between the live check and the write, so the result
+  can also be `STORED_DEGRADED` (at least 3 acknowledged) or `FAILED_PARTIAL` (fewer).
+  **This is not consensus and not linearizable**: two concurrent writers of the same key are
+  ordered only by last-writer-wins.
+- **EVENTUAL** acknowledges after the local write and pushes to peers after the simulated
+  `eventualLagMs`, retrying peers that are down; periodic anti-entropy pulls newer records
+  from peers, so replicas converge without operator action.
+- **Last-writer-wins**: the higher timestamp wins; equal timestamps go to the higher writer
+  node id. Timestamps come from the writer node's Berkeley-corrected clock (physical time +
+  drift + corrections), made monotonic per node.
+- **Clocks**: the elected leader runs Berkeley rounds (every `berkeleyIntervalMs`, when asked by
+  `/api/clock/sync`, and when a restarted node rejoins). Berkeley converges the nodes to the
+  **mean of their offsets, not to true time**: that is enough for LWW, which needs the nodes to
+  agree with each other, not with real time. With auto-sync off, skewed clocks make LWW keep
+  the write with the larger stamp even if it happened earlier (BlackboardVerifier B7 shows this).
+- **Restart**: a restarted replica pulls the records its live peers hold and asks the leader
+  for a clock round before it reports `ready`; until then its reads are answered `NOT_READY`.
+  It waits at most 3 s for the clock (then `clockSynced=false`), and not at all when
+  auto-sync is off. In the final verifier runs this wait did time out (BlackboardVerifier B5,
+  both runs): the restarted node went ready unsynced and kept its configured drift until the
+  next round. This is not yet diagnosed.
+
+#### Cost of STRONG vs EVENTUAL (BlackboardVerifier B10)
+These numbers come from two consecutive BlackboardVerifier runs. Each run had 3 STRONG and 3
+EVENTUAL jobs, interleaved (WEIGHTED policy, 42 subtasks, 20 findings and 1 answer each).
+JobFlakeCheck adds a second sample of 15 jobs per mode.
+
+| | STRONG min / median / max | EVENTUAL min / median / max |
+|---|---|---|
+| Direct write via the API (B1/B2, 20 writes per run) | 1 / 2–3 / 22 ms | 0 / 0 / 1 ms |
+| Finding write inside a job (per-job median, 6 jobs) | 13 / 32 / 383 ms | 0 / 0 / 0 ms |
+| Job makespan, B10 (6 jobs) | 780 / 868 / 1499 ms | 738 / 801 / 981 ms |
+| Job makespan, JobFlakeCheck (15 jobs) | 743 / 826 / 2060 ms | 720 / 753 / 1010 ms |
+
+- **What the numbers show:**
+  - A STRONG write waits for every live replica, while an EVENTUAL write returns after the local write.
+  - Inside a job, a STRONG finding write competes with the job's own RMI traffic, so it costs more than a direct write.
+  - EVENTUAL's price is staleness instead: in B2, 79–80 of 100 immediate reads were stale, and replicas agreed after a median of 453–460 ms.
+  - The makespan ranges overlap: STRONG costs roughly 0–100 ms per job at the median, less than the run-to-run spread.
+- **Caveats:**
+  - Measured on one Windows machine running all 5 nodes and the control plane, with simulated work (150 ms per subtask) and a simulated 400 ms EVENTUAL lag (`eventualLagMs`).
+  - Machine load causes visible run-to-run variance: the first job of a series is often the slowest (1499 / 1399 ms in B10, 2060 ms in JobFlakeCheck).
+  - Treat these as orders of magnitude, not benchmarks.
+
 ### Verifiers
 With the control plane running, from `backend/`:
 ```bash
 java -cp build/classes agentgrid.control.ElectionVerifier   # Exp 4: election (V1-V6)
 java -cp build/classes agentgrid.control.JobVerifier        # Phase 4: jobs and routing (J1-J5)
+java -cp build/classes agentgrid.control.BlackboardVerifier # Phase 5: replicated blackboard (B1-B11)
+java -cp build/classes agentgrid.control.RestartStress      # restart all 5 nodes at once, 10 cycles
+java -cp build/classes agentgrid.control.JobFlakeCheck      # 30 jobs, no false ORPHANED
+java -cp build/classes agentgrid.control.JobFlakeCheck orphan 5  # kill the leader mid-job: time to JOB_ORPHANED
 ```
-Both use only the HTTP API (JobVerifier also reads the bundled corpus to check that the
-answer's sentences come from the cited documents), print every measured number, end with a
-PASS/FAIL table, and exit non-zero if a check fails. ElectionVerifier kills and restarts nodes
-and takes several minutes.
+They drive the HTTP API (JobVerifier and BlackboardVerifier also read the bundled corpus to
+check answer sentences, and BlackboardVerifier checks the merge function in-process), print
+every measured number, end with a PASS/FAIL table, and exit non-zero if a check fails.
+ElectionVerifier and BlackboardVerifier kill and restart nodes and take several minutes.
+ElectionVerifier leaves the election algorithm set to RING when it finishes.
 
-`agentgrid.node.ElectionBaselineProbe` and `agentgrid.orchestrator.BalancerBaselineProbe`
-produce the "before" numbers in [FIXES.md](FIXES.md).
+**Not yet tested:**
+- The shutdown hook when the control plane's console window is closed. Ctrl+C stops all 5 nodes; a forced kill of the control plane leaves them running (stop them with `stop-cluster.ps1`).
+- Linux, and `build.sh` / `build.bat`. Everything here was built with `build.ps1` and run on Windows.
+- The dashboard has not been opened in a browser.
+
+`agentgrid.node.ElectionBaselineProbe`, `agentgrid.orchestrator.BalancerBaselineProbe` and
+`agentgrid.node.BlackboardBaselineProbe` produce the "before" numbers in [FIXES.md](FIXES.md).
 
 

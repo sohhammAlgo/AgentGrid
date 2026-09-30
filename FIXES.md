@@ -212,3 +212,190 @@ The "before" numbers for D, E and F below also come from `agentgrid.node.Electio
   - *Before (loop index, Result timestamps ignored)*: **22 of 22** dependent subtasks carried a timestamp no greater than a result they depend on. For example, RANK carried ts=0 while a RETRIEVE result it depends on had ts=2158.
   - *After (Lamport chain)*: **0 of 22**.
   - In the live cluster, JobVerifier J5 checks every subtask for dispatch < result < completion. It also checks that each stage's first dispatch follows the previous stage's last completion, and that each node's own events strictly increase.
+
+---
+
+## Phase 5: Replicated Blackboard (Exp 5) in the Live Cluster
+
+The submitted `replication/*` classes are unchanged. The integrated blackboard is [`ClusterBlackboard`](backend/src/main/java/agentgrid/node/ClusterBlackboard.java) behind [`ClusterBlackboardService`](backend/src/main/java/agentgrid/node/ClusterBlackboardService.java), which extends the submitted `ReplicationService`. It is bound under the same name, `blackboard-node-node-<id>`.
+
+- **"Before" numbers** for I–S come from [`BlackboardBaselineProbe`](backend/src/main/java/agentgrid/node/BlackboardBaselineProbe.java), which drives the submitted `ReplicatedBlackboardNode` in-process on ports 1731–1733. Where no number is given, the "before" comes from reading the submitted code.
+- **"After" numbers** come from the two final `BlackboardVerifier` runs (run 1 / run 2) against the live 5-node cluster.
+- **Conditions:** one Windows machine, simulated work (150 ms per subtask), and a simulated 400 ms EVENTUAL lag.
+
+### Fix I: LWW Ties Depend on Arrival Order; the Caller Supplies the Timestamp
+
+- **Bug Description**: `updateLocal` replaces an entry only if `incoming.timestamp > existing.timestamp`.
+  - On a tie, whichever entry arrived first stays, so two replicas that see a tie in different orders diverge.
+  - The timestamp is whatever the caller passes. No node clock is involved.
+- **Location in Submitted Code**: [`replication/ReplicatedBlackboardNode.java`](backend/src/main/java/agentgrid/replication/ReplicatedBlackboardNode.java) (`updateLocal`).
+- **What Changed in Integrated Version**:
+  - [`BlackboardRecord.merge`](backend/src/main/java/agentgrid/node/BlackboardRecord.java) is a pure function. The higher timestamp wins, and a tie goes to the higher writer node id.
+  - The writing node stamps each record from its own Berkeley-corrected clock. Stamps are monotonic per node: `max(corrected now, last + 1)`.
+- **Before/After Measurement**:
+  - *Before (probe 1)*: equal timestamps delivered in opposite orders left node-2 holding 'one' and node-3 holding 'two'. The replicas diverged.
+  - *After (B6)*: all 24 arrival orders of 4 records, including a tie, end at the same record (both runs). B7 shows the node clock deciding LWW in the live cluster (see Fix R).
+
+### Fix J: STRONG Applied Locally First, With No Quorum, and Failed on Any Dead Peer
+
+- **Bug Description**:
+  - A STRONG write applied locally before asking anyone. It then waited, with no timeout, for every configured peer.
+  - It returned false if any single peer failed, but the partial write stayed on the origin and on every peer that succeeded.
+  - It had no reachability or quorum check and never refused a write.
+- **Location in Submitted Code**: [`replication/ReplicatedBlackboardNode.java`](backend/src/main/java/agentgrid/replication/ReplicatedBlackboardNode.java) (`publishFinding`, STRONG branch).
+- **What Changed in Integrated Version**: `ClusterBlackboard.writeStrong`:
+  - It probes liveness first, capped at 500 ms. If fewer than a majority (3 of 5) are live, it returns REFUSED and writes nothing.
+  - Otherwise it applies locally and replicates in parallel, with each peer call bounded at 1500 ms.
+  - The outcome is STORED, STORED_DEGRADED or FAILED_PARTIAL, with the acked and failed nodes listed. This is not consensus and not linearizable (see README).
+- **Before/After Measurement**:
+  - *Before (probe 2)*: with node-3 down, 5/5 STRONG writes returned false, yet all 5 of those "failed" writes were held by 2 of the 3 nodes.
+  - *After (B3, both runs)*:
+    - With 3 of 5 live, the write was STORED on [3, 4, 5] in 354 / 313 ms, and all live reads were FRESH.
+    - With 2 of 5 live, it was REFUSED ("only 2 of 5 nodes live … nothing was written") and held by no live node.
+    - After restarting 1, 2 and 3, the 3-live key was FRESH on all 5 and the refused key was absent everywhere.
+
+### Fix K: STRONG Reported Failure When a Replica Already Held Newer Data
+
+- **Bug Description**: `receiveReplicate` returns false when the replica already holds a newer timestamp. A STRONG write therefore reported failure even though every node held that key (in a newer version).
+- **Location in Submitted Code**: [`replication/ReplicatedBlackboardNode.java`](backend/src/main/java/agentgrid/replication/ReplicatedBlackboardNode.java) (`receiveReplicate`, `publishFinding`).
+- **What Changed in Integrated Version**: `ClusterBlackboard.replicaApply` acks when the replica holds this record *or a newer one*. The ack means "this key is at least this fresh here".
+- **Before/After Measurement**:
+  - *Before (probe 3)*: a STRONG write with ts 4000, sent while node-2 already held ts 5000, made `publishFinding` return false although every node held that key.
+  - *After*: this exact scenario was not re-run in the live cluster; the rule is in the code. In the final runs, the STRONG counters after B7's full restart show 95 STORED, 0 FAILED_PARTIAL and 0 STORED_DEGRADED (both runs).
+
+### Fix L: EVENTUAL Was One-Shot, With No Retry or Anti-Entropy
+
+- **Bug Description**: an EVENTUAL write fired one `receiveReplicate` per peer. A peer that was down never received the write. There was no lag, so staleness depended only on thread scheduling.
+- **Location in Submitted Code**: [`replication/ReplicatedBlackboardNode.java`](backend/src/main/java/agentgrid/replication/ReplicatedBlackboardNode.java) (`publishFinding`, EVENTUAL branch).
+- **What Changed in Integrated Version**: `ClusterBlackboard.writeEventual`:
+  - Delivery starts after the simulated `eventualLagMs` (400 ms). A failed delivery is retried every 1000 ms for up to 60 s.
+  - Separately, each node pulls newer entries from one random peer every 2000 ms (anti-entropy, `pullNewer` with a `ts:writer` digest).
+- **Before/After Measurement**:
+  - *Before (probe 4)*: an EVENTUAL write made while node-3 was down was still missing on node-3 after it had been back for 3 s.
+  - *After (B5)*: 5 EVENTUAL writes made while node 2 was down were all held by node 2 at its first ready snapshot. All 5 keys were FRESH on all 5 nodes 4008 / 4213 ms after the restart request, with no operator action.
+  - *After (B2)*: 79–80 of 100 immediate reads were stale, and 20/20 writes converged on all 5 nodes, with medians of 460 / 453 ms.
+
+### Fix M: Restarted Node Served Empty Reads as Current
+
+- **Bug Description**: `getAllFindings()` exists but nothing calls it. A restarted node started empty and answered reads immediately as if it were up to date.
+- **Location in Submitted Code**: [`replication/ReplicatedBlackboardNode.java`](backend/src/main/java/agentgrid/replication/ReplicatedBlackboardNode.java) (constructor; `getAllFindings` unused).
+- **What Changed in Integrated Version**: `ClusterBlackboard.catchUp()`:
+  - On start the node is not ready. It pulls from every reachable peer (retrying for up to 2 s), then asks the leader for a rejoin clock sync, and only then sets `ready`.
+  - While it is not ready, reads report NOT_READY rather than an empty value.
+- **Before/After Measurement**:
+  - *Before (probe 5)*: restarted node-3 held 0 of 7 entries, and `getFinding("strong-0")` returned null.
+  - *After (B4)*: restarted node 2 answered 12 / 14 reads NOT_READY, then became ready after 1989 / 1879 ms holding 5/5 of the keys written while it was down.
+
+### Fix N: Findings From Different Jobs Collided on `subtaskId`
+
+- **Bug Description**: entries are keyed by `subtaskId` only, and `taskId` is ignored. `summarize-1` from two different jobs overwrote each other.
+- **Location in Submitted Code**: [`replication/ReplicatedBlackboardNode.java`](backend/src/main/java/agentgrid/replication/ReplicatedBlackboardNode.java) (map keyed by `entry.getSubtaskId()`).
+- **What Changed in Integrated Version**:
+  - Keys are strings chosen by the writer. Jobs use `job/<jobId>/finding/<subtaskId>` and `job/<jobId>/answer` (see [`JobRunner.blackboardKey`](backend/src/main/java/agentgrid/orchestrator/JobRunner.java)).
+  - The worker that runs a SUMMARIZE subtask posts its own finding.
+- **Before/After Measurement**:
+  - *Before (probe 6)*: two jobs each wrote `summarize-1`. Node-1 kept 1 entry, with taskId=job-B, so job-A's finding was lost.
+  - *After (B8, both runs)*: each job had 21 distinct keys (20 findings plus the answer) on all 5 replicas. The writer of each finding was the worker that ran it, and the blackboard answer equals the job answer.
+
+### Fix O: Blackboard RMI Without Connect Timeouts
+
+- **Bug Description**: the submitted blackboard is exported without a socket factory and looks up peers on every call. A peer that dies between lookup and call hits the Windows connect stall to the LAN address.
+- **Location in Submitted Code**: [`replication/ReplicatedBlackboardNode.java`](backend/src/main/java/agentgrid/replication/ReplicatedBlackboardNode.java) (`UnicastRemoteObject` export, peer lookups).
+- **What Changed in Integrated Version**:
+  - `ClusterBlackboard` is exported with `TimeoutSocketFactory` (300 ms connect timeout).
+  - Each peer call is bounded at 1500 ms, and the liveness probe is capped at 500 ms.
+- **Before/After Measurement**:
+  - *Before*: a connect to a closed port on the stubs' LAN address (10.251.80.78) took 2031 ms without the timeout (measured in Phase 3B).
+  - *After*: 311 ms with it. In B3, a STRONG write with nodes 1 and 2 already dead completed in 354 / 313 ms.
+
+### Fix P: The Submitted Interface Could Not Express the Design
+
+- **Bug Description**: `ReplicationService` has no quorum outcome, ready flag, snapshot with metadata, writer id, or digest pull.
+- **Location in Submitted Code**: [`replication/ReplicationService.java`](backend/src/main/java/agentgrid/replication/ReplicationService.java).
+- **What Changed in Integrated Version**: `ClusterBlackboardService` extends `ReplicationService` and adds `write`, `read`, `snapshot`, `metrics`, `isReady`, `alive`, `replicaApply` and `pullNewer`. The 5 submitted methods are still served, adapted onto the new store.
+- **Before/After Measurement** (probe 8): 5 remote methods before, 5 + 8 after.
+
+### Fix Q: Berkeley Corrections Lost When a Node Restarts
+
+- **Bug Description**: a restarted node rebuilds its `TimeServiceImpl` with the configured drift, so its earlier Berkeley corrections are lost until the next round.
+- **Location in Submitted Code**: [`clock/TimeServiceImpl.java`](backend/src/main/java/agentgrid/clock/TimeServiceImpl.java) (offset initialised from the configured drift); nothing requested a sync on restart.
+- **What Changed in Integrated Version**: during `catchUp()`, a restarting node asks the leader's [`ClockCoordinator`](backend/src/main/java/agentgrid/node/ClockCoordinator.java) for a rejoin round.
+  - It waits at most 3 s, then becomes ready anyway, reporting `clockSynced=false`.
+  - The leader debounces rejoin rounds to one per 2 s.
+  - `POST /api/clock/auto` turns this off together with the periodic round.
+- **Before/After Measurement**:
+  - *Before (B7, auto-sync off, both runs)*: restarted nodes came back at their configured drift: 3001 / −1999 / 500 / 0 / 1500 ms and 3000 / −2000 / 499 / 0 / 1501 ms.
+  - *After, B4 (both runs)*: restarted node 2 reported `clockSynced=true`, and offsets afterwards were N1–N5 = 32–34 ms and 90–91 ms.
+  - **Not fixed in every case.** In B5 of *both* final runs, restarted node 2 became ready with `clockSynced=false` after 3815 / 4085 ms and stayed at −2000 ms while the others were at 33 / 90 ms. The rejoin round did not include it within the 3 s wait.
+    - In an earlier run (bb3), B5 did sync.
+    - The node logs from these runs were overwritten by later restarts, so the cause is not diagnosed. No B-check asserts `clockSynced`, which is why B5 still passes.
+
+### Fix R: Berkeley Unified on the Leader (BerkeleyRound Removed)
+
+- **Bug Description**: the manual sync (`control/BerkeleyRound`, Phase 2 code) ran with the control plane as coordinator.
+  - The control plane was left out of the average.
+  - The round had no timeouts, and one failing node aborted it.
+  - A second implementation would have been needed for the node-side rejoin sync.
+- **Location**: `backend/src/main/java/agentgrid/control/BerkeleyRound.java` (deleted).
+- **What Changed in Integrated Version**: there is one implementation, [`ClockCoordinator`](backend/src/main/java/agentgrid/node/ClockCoordinator.java).
+  - It is run by the elected leader, which is included in the average. The nodes converge to their mean offset, not to true time.
+  - Reads are RTT-compensated, in parallel, with a 700 ms timeout per node. Dead nodes are skipped.
+  - It runs periodically every 30 s, on rejoin, and on manual `POST /api/clock/sync`. The manual sync asks the leader and returns 409 when no leader is agreed.
+- **Before/After Measurement**:
+  - *Before*: from code reading (no live measurement). A round with a dead node threw, and the rest of that round was skipped.
+  - *After (B3, both runs)*: with nodes 1 and 2 down, a round completed with nodeCount=3, skipped=[1, 2], coordinator=5.
+  - *After (B7, both runs)*: spread 5000 ms → 1 ms over 5 nodes. LWW kept the earlier write A before the sync and the later write B after it.
+
+### Fix S: Blackboard Metrics Gave Averages Only, With No Refused Count
+
+- **Bug Description**: `ReplicationMetrics` exposes an average write latency and a stale-read count, with no median and no refused-write count.
+- **Location in Submitted Code**: [`replication/ReplicationMetrics.java`](backend/src/main/java/agentgrid/replication/ReplicationMetrics.java).
+- **What Changed in Integrated Version**:
+  - [`BlackboardMetrics`](backend/src/main/java/agentgrid/node/BlackboardMetrics.java) counts STORED / STORED_DEGRADED / REFUSED / FAILED_PARTIAL, EVENTUAL accepted / retries / delivered, anti-entropy applies and pending propagation.
+  - Medians come from a bounded window of 200 samples.
+  - The control plane classifies reads as FRESH / STALE / NOT_READY / UNCHECKED (`/api/blackboard/metrics`).
+- **Before/After Measurement**:
+  - *Before (probe 12)*: average only; no median, no refused count.
+  - *After (B10, both runs)*:
+    - STRONG: 95 stored, 0 degraded, 0 refused, 0 failedPartial, median 43 / 34 ms.
+    - Reads: 320 / 630 stale, 341 / 672 fresh, 57 / 114 not ready.
+  - Counters are per node process and reset on restart. B7 restarts all 5 nodes, so B3's REFUSED write shows as a `BLACKBOARD_REFUSED` event, not in these counters.
+
+### Fix T: Restart Started the New JVM Before the Old One Released Its Port
+
+- **Bug Description**: `NodeProcessManager.kill()` waited up to 1 s after `destroyForcibly()`, and `start()` launched the new JVM without checking the port. When several nodes were restarted at once, the old process could still hold its registry port, so the new JVM failed to bind and exited.
+- **Location**: [`node/NodeProcessManager.java`](backend/src/main/java/agentgrid/node/NodeProcessManager.java) (Phase 1 code), `kill`, `start` and `restart`.
+- **What Changed in Integrated Version**:
+  - After `destroyForcibly()` it waits up to 5 s for the process to exit. It then bind-tests the node's port every 50 ms for up to 5 s, and only then starts the JVM.
+  - If the port is still held, it starts nothing and throws. The restart API then records `NODE_RESTART_FAILED`, re-polls the node so it shows as down, and returns its usual 500 error shape.
+  - The response shapes of `/api/nodes/{id}/restart` and `/kill` are unchanged.
+- **Before/After Measurement**:
+  - *Before*: in BlackboardVerifier run bb2, B7's parallel restart of all 5 left node 5 failing with "Port already in use: 1605", and the verifier aborted on the resulting 503.
+  - *After*:
+    - `RestartStress` (restart all 5 at once, 10 cycles) reached 10/10 ready in both runs. Time to ready was min / median / max 1399 / 3311 / 4167 ms, then 1360 / 3063 / 3399 ms. 0 of 50 restart requests failed.
+    - In the first stress session, the port was still held after the old JVM had exited in 43 of 50 restarts, for up to 144 ms. Over the whole final session (stress, verifiers, orphan timing), this happened in 55 of 70 logged starts, for up to 215 ms. No start was refused.
+
+### Fix U: A Single Missed Monitor Poll Orphaned a Running Job
+
+- **Bug Description**: `JobDirectory.onCycle` marked a running job ORPHANED the first time the monitor saw its leader DOWN, and never let the leader's later report overwrite it.
+  - The monitor's RMI calls time out at 700 ms. Under load, one slow poll produces a false NODE_DOWN_DETECTED / NODE_UP_DETECTED pair about 300 ms apart.
+  - That false pair was enough to orphan a job that completed normally.
+- **Location**: [`control/JobDirectory.java`](backend/src/main/java/agentgrid/control/JobDirectory.java) (Phase 4 code), `onCycle`.
+- **What Changed in Integrated Version**:
+  - A running job is orphaned only when its leader has been continuously unreachable for at least 1500 ms of wall-clock time, or when a different leader has been agreed.
+  - An ORPHANED set while the original leader is still the agreed one is provisional. If that leader reports the job COMPLETE or FAILED, that outcome replaces ORPHANED. It becomes final once a different leader is agreed.
+  - The monitor's 700 ms timeout and its NODE_DOWN_DETECTED behaviour are unchanged. The false DOWN/UP pair under load remains a known flake.
+- **Before/After Measurement**:
+  - *Before (BlackboardVerifier run bb3, B8 EVENTUAL)*: nodes 4 and 5 were seen DOWN for about 300 ms. The job was reported ORPHANED with makespan 5160 ms, although leader 5 recorded JOB_COMPLETED 21/21 at 5441 ms.
+  - *Leader killed mid-job* (`JobFlakeCheck orphan 5`, times seen by the client after the kill request):
+
+    | | Job ORPHANED in the API | JOB_ORPHANED event | New agreed leader |
+    |---|---|---|---|
+    | Before | 71–208 ms | 1871–2297 ms | 1745–2048 ms |
+    | After | 1661–1834 ms | 1935–2154 ms | 1748–2002 ms |
+
+    The event, which needs the new leader, is not delayed by the rule.
+  - *No failure injected* (`JobFlakeCheck`, 30 jobs alternating STRONG / EVENTUAL):
+    - Before: 30/30 COMPLETE.
+    - After: 30/30 COMPLETE, 0 falsely ORPHANED.
+    - Neither run saw a NODE_DOWN_DETECTED, so on an idle machine this check does not reproduce the flake. Its "before" evidence is the bb3 run above.
