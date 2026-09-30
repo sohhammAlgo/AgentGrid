@@ -77,6 +77,7 @@ public class BlackboardVerifier {
         step("B9", this::b9);
         step("B10", this::b10);
         step("B11", this::b11);
+        step("B12", this::b12);
 
         line("");
         line("=====================================================================");
@@ -811,6 +812,55 @@ public class BlackboardVerifier {
         check("B11 election/leader events retained", missing.isEmpty() && first == startSeq + 1,
                 events.size() + " events since start, none evicted; present: " + required + (missing.isEmpty() ? "" : "; MISSING " + missing));
         line("ElectionVerifier and JobVerifier are run separately after this verifier (see the report).");
+    }
+
+    // =========================================================================
+    // B12: key and value limits
+    // =========================================================================
+
+    private void b12() throws Exception {
+        header("B12 limits: key <= 128 and value <= 1024 characters accepted; one more is 400");
+        String base = "lim/" + run + "/";
+        Object[][] cases = {
+            {"128-char key", key(base, 128), "v", 200},
+            {"129-char key", key(base, 129), "v", 400},
+            {"200-char key", key(base, 200), "v", 400},
+            {"1024-char value", base + "v1024", "x".repeat(1024), 200},
+            {"1025-char value", base + "v1025", "x".repeat(1025), 400},
+        };
+        List<String> wrong = new ArrayList<>();
+        for (Object[] c : cases) {
+            String k = (String) c[1];
+            String v = (String) c[2];
+            HttpResponse<String> res = postStatus("/api/blackboard/write", "{\"node\":1,\"key\":\"" + k + "\",\"value\":\"" + v
+                    + "\",\"mode\":\"STRONG\"}");
+            String body = res.body();
+            String shown = res.statusCode() == 200 ? String.valueOf(map(body).get("status")) : body;
+            boolean ok = res.statusCode() == (int) c[3] && (res.statusCode() != 200 || "STORED".equals(map(body).get("status")));
+            if (!ok) wrong.add((String) c[0]);
+            line(String.format("  %-16s key %3d chars, value %4d chars -> HTTP %d %s (expected %d) %s",
+                    c[0], k.length(), v.length(), res.statusCode(), shown.length() > 110 ? shown.substring(0, 110) + "..." : shown,
+                    (int) c[3], ok ? "ok" : "WRONG"));
+        }
+        Map<String, Object> r = read(1, key(base, 128));
+        line("  read of the 128-char key via node 1: found=" + r.get("found") + " verdict=" + r.get("verdict"));
+        if (!Boolean.TRUE.equals(r.get("found"))) wrong.add("128-char key not readable");
+        check("B12 key/value limits", wrong.isEmpty(), "128-char key and 1024-char value STORED; 129- and 200-char keys and a 1025-char value rejected with 400"
+                + (wrong.isEmpty() ? "" : "; WRONG: " + wrong));
+    }
+
+    /** base padded with 'k' to exactly len characters. */
+    private static String key(String base, int len) {
+        return base + "k".repeat(len - base.length());
+    }
+
+    private HttpResponse<String> postStatus(String path, String body) throws Exception {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(BASE + path))
+                .timeout(Duration.ofSeconds(20))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+        return http.send(req, HttpResponse.BodyHandlers.ofString());
     }
 
     // =========================================================================
