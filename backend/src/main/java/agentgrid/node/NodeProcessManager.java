@@ -82,7 +82,11 @@ public class NodeProcessManager {
                 String.valueOf(nodeId)
         );
         pb.redirectErrorStream(true);
-        pb.redirectOutput(logFile.toFile());
+        // Append, so the log of a killed or restarted node is kept (one header per start).
+        Files.writeString(logFile, System.lineSeparator() + "===== " + java.time.LocalDateTime.now() + " starting node "
+                + nodeId + " (clock.auto=" + clockAutoSync + ") =====" + System.lineSeparator(),
+                java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+        pb.redirectOutput(ProcessBuilder.Redirect.appendTo(logFile.toFile()));
 
         Process proc = pb.start();
         processes.put(nodeId, proc);

@@ -294,6 +294,7 @@ public class ControlPlaneMain {
         } else if (action.equals("restart")) {
             try {
                 Process p = processManager.restart(nodeId);
+                monitor.markRestarted(nodeId);
                 eventLog.record("NODE_RESTARTED", nodeId, "Node " + nodeId + " restarted (pid=" + p.pid() + ")", System.currentTimeMillis());
                 syncAllUpNodesLamport();
                 monitor.expectElectionActivity(10000);

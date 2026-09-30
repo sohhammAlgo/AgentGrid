@@ -58,6 +58,9 @@ public final class ClusterBlackboard extends UnicastRemoteObject implements Clus
     static final long SNAPSHOT_WAIT_MS = 2000L;
     static final long CLOCK_WAIT_MS = 3000L;
     static final long RETRY_MS = 1000L;
+    static final long REJOIN_RETRY_MIN_MS = 250L;
+    static final long REJOIN_RETRY_MAX_MS = 2000L;
+    static final long REJOIN_RETRY_TIMEOUT_MS = 5000L;
     static final long GIVE_UP_MS = 60000L;
     private static final int DETAIL_CHARS = 80;
 
@@ -392,23 +395,59 @@ public final class ClusterBlackboard extends UnicastRemoteObject implements Clus
         events.record("BLACKBOARD_SYNC", "snapshot pull: node " + nodeId + " pulled " + applied + " record(s) from "
                 + snapshotSource, f);
 
+        long clockStart = System.currentTimeMillis();
+        int[] counts = new int[2];   // rejoin attempts, polls without a known leader
         if (clockCoordinator.isAutoSync()) {
-            long clockDeadline = System.currentTimeMillis() + CLOCK_WAIT_MS;
-            while (System.currentTimeMillis() < clockDeadline && clockCoordinator.lastSyncedTrueMs() < 0) {
-                int leader = leaderView.getAsInt();
-                if (leader > 0) {
-                    long remaining = Math.max(1, clockDeadline - System.currentTimeMillis());
-                    Boolean ok = leader == nodeId ? localRejoin() : callClock(leader, remaining);
-                    if (Boolean.TRUE.equals(ok)) {
-                        break;
-                    }
+            long clockDeadline = clockStart + CLOCK_WAIT_MS;
+            while (System.currentTimeMillis() < clockDeadline && !clockSynced()) {
+                rejoinAttempt(Math.max(1, clockDeadline - System.currentTimeMillis()), counts, clockStart);
+                if (!clockSynced()) {
+                    sleep(200);
                 }
-                sleep(200);
             }
         }
         ready = true;
         System.out.println("[Node " + nodeId + "] blackboard ready (" + store.size() + " records from "
                 + snapshotSource + ", clockSynced=" + clockSynced() + ")");
+
+        // READY is capped at CLOCK_WAIT_MS, but a rejoin sync that has not happened is not dropped:
+        // keep asking the leader (short backoff) until a round includes this node or auto-sync is off.
+        if (clockCoordinator.isAutoSync() && !clockSynced()) {
+            log("clock wait ended unsynced after " + (System.currentTimeMillis() - clockStart) + " ms ("
+                    + counts[0] + " attempts, " + counts[1] + " polls without a leader); retrying in the background");
+            long backoff = REJOIN_RETRY_MIN_MS;
+            while (clockCoordinator.isAutoSync() && !clockSynced() && !Thread.currentThread().isInterrupted()) {
+                sleep(backoff);
+                if (clockCoordinator.isAutoSync() && !clockSynced()) {
+                    rejoinAttempt(REJOIN_RETRY_TIMEOUT_MS, counts, clockStart);
+                }
+                backoff = Math.min(backoff * 2, REJOIN_RETRY_MAX_MS);
+            }
+            log(clockSynced() ? "clock synced " + (System.currentTimeMillis() - clockStart) + " ms after the clock wait began"
+                    : "stopped retrying the rejoin sync: auto-sync is off");
+        }
+    }
+
+    /** One rejoin-sync request to the current leader; a true answer means its round corrected this node. */
+    private void rejoinAttempt(long timeoutMs, int[] counts, long clockStart) {
+        int leader = leaderView.getAsInt();
+        if (leader <= 0) {
+            counts[1]++;
+            return;
+        }
+        counts[0]++;
+        long t0 = System.currentTimeMillis();
+        String[] why = new String[1];
+        Boolean ok = leader == nodeId ? localRejoin() : callClock(leader, timeoutMs, why);
+        log("rejoin sync attempt " + counts[0] + " to leader " + leader + " (" + counts[1]
+                + " polls without a leader so far): " + (ok == null ? why[0] : ok) + " after "
+                + (System.currentTimeMillis() - t0) + " ms, " + (System.currentTimeMillis() - clockStart)
+                + " ms after the clock wait began");
+        if (Boolean.TRUE.equals(ok)) {
+            // The leader's round included and corrected this node; its noteSynced() call is
+            // asynchronous, so record it here too.
+            clockCoordinator.noteSynced(0);
+        }
     }
 
     private Boolean localRejoin() {
@@ -419,12 +458,26 @@ public final class ClusterBlackboard extends UnicastRemoteObject implements Clus
         }
     }
 
-    private Boolean callClock(int leader, long timeoutMs) {
+    private Boolean callClock(int leader, long timeoutMs, String[] why) {
         Future<Boolean> f = calls.submit(() -> {
             ClockCoordinatorService c = (ClockCoordinatorService) registry(leader).lookup("clock");
             return c.requestRejoinSync(nodeId);
         });
-        return waitFor(f, timeoutMs);
+        try {
+            return f.get(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.TimeoutException e) {
+            f.cancel(true);
+            why[0] = "TIMEOUT (" + timeoutMs + " ms)";
+        } catch (Exception e) {
+            f.cancel(true);
+            Throwable c = e.getCause() != null ? e.getCause() : e;
+            why[0] = "EXCEPTION " + c;
+        }
+        return null;
+    }
+
+    private void log(String msg) {
+        System.out.println(java.time.LocalTime.now() + " [Node " + nodeId + "] blackboard: " + msg);
     }
 
     private boolean clockSynced() {

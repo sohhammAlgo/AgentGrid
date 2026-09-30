@@ -347,6 +347,15 @@ public class ClusterMonitor {
         return status;
     }
 
+    /**
+     * A node's process was just replaced. Its next UP poll is treated as a first sighting
+     * (algorithm and auto-sync aligned, first sync() sent) even if no poll saw it DOWN: a kill
+     * and restart between two polls otherwise left the new process without its first sync().
+     */
+    public void markRestarted(int nodeId) {
+        lastKnownState.put(nodeId, false);
+    }
+
     /** Sends the control plane's Lamport time to a node (bounded by the RMI timeout). */
     public void syncNode(NodeAgent agent) {
         if (agent == null) {

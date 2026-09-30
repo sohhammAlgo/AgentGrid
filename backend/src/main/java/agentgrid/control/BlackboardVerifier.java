@@ -37,6 +37,8 @@ public class BlackboardVerifier {
     private static final int ROUNDS = 20;
     private static final long STABLE_TIMEOUT_MS = 30000;
     private static final long JOB_TIMEOUT_MS = 30000;
+    private static final long CLOCK_TOLERANCE_MS = 100;
+    private static final long CLOCK_SYNC_WINDOW_MS = 5000;
 
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
     private final Map<String, Boolean> passed = new LinkedHashMap<>();
@@ -341,6 +343,7 @@ public class BlackboardVerifier {
             Map<String, Object> w = write(4, key, mode.toLowerCase() + "-while-2-down-" + i, mode);
             line(String.format("write %s via node 4 while node %d is down: %s acked=%s", key, target, w.get("status"), w.get("acked")));
         }
+        boolean autoSync = Boolean.TRUE.equals(map(get("/api/clock/auto")).get("enabled"));
         long restartAt = System.currentTimeMillis();
         post("/api/nodes/" + target + "/restart", "{}");
         int notReadyReads = 0;
@@ -369,6 +372,23 @@ public class BlackboardVerifier {
                 Thread.sleep(40);
             }
         }
+        // With auto-sync on, the restarted node's clock must rejoin the others: its offset within
+        // CLOCK_TOLERANCE_MS of every other node's within CLOCK_SYNC_WINDOW_MS of ready.
+        long clockAlignedMs = -1;
+        Map<Integer, Long> clockOffsets = new TreeMap<>();
+        long readyWallMs = System.currentTimeMillis();
+        while (firstReady != null && System.currentTimeMillis() - readyWallMs <= CLOCK_SYNC_WINDOW_MS) {
+            clockOffsets = offsets();
+            if (alignedWithOthers(clockOffsets, target)) {
+                clockAlignedMs = System.currentTimeMillis() - readyWallMs;
+                break;
+            }
+            Thread.sleep(200);
+        }
+        boolean clockOk = !autoSync || clockAlignedMs >= 0;
+        line("auto-sync " + (autoSync ? "on" : "off") + "; node " + target + " offset within " + CLOCK_TOLERANCE_MS
+                + " ms of every other node: " + (clockAlignedMs >= 0 ? clockAlignedMs + " ms after ready"
+                : "NOT within " + CLOCK_SYNC_WINDOW_MS + " ms of ready") + "; offsets vs control plane (ms) " + clockOffsets);
         List<String> held = new ArrayList<>();
         if (firstReady != null) {
             for (Map<String, Object> e : listOf(firstReady.get("entries"))) {
@@ -411,14 +431,17 @@ public class BlackboardVerifier {
         }
         line("clock offsets vs control plane after the restart (ms):" + o);
 
+        String clockDetail = "; clock " + (!autoSync ? "not checked (auto-sync off)"
+                : clockAlignedMs >= 0 ? "within " + CLOCK_TOLERANCE_MS + " ms of all nodes " + clockAlignedMs + " ms after ready"
+                : "NOT within " + CLOCK_TOLERANCE_MS + " ms of all nodes " + CLOCK_SYNC_WINDOW_MS + " ms after ready " + clockOffsets);
         if (mode.equals("STRONG")) {
-            check("B4 STRONG restart catch-up", firstReady != null && heldAtReady == 5 && convergedAt >= 0,
+            check("B4 STRONG restart catch-up", firstReady != null && heldAtReady == 5 && convergedAt >= 0 && clockOk,
                     "node " + target + " held " + heldAtReady + "/5 at its first ready snapshot (ready after " + readyAt
-                            + " ms, " + notReadyReads + " NOT_READY reads before); all FRESH after " + convergedAt + " ms");
+                            + " ms, " + notReadyReads + " NOT_READY reads before); all FRESH after " + convergedAt + " ms" + clockDetail);
         } else {
-            check("B5 EVENTUAL restart catch-up", firstReady != null && convergedAt >= 0,
+            check("B5 EVENTUAL restart catch-up", firstReady != null && convergedAt >= 0 && clockOk,
                     "node " + target + " ready after " + readyAt + " ms holding " + heldAtReady
-                            + "/5; all 5 keys FRESH on all 5 nodes after " + convergedAt + " ms without operator action");
+                            + "/5; all 5 keys FRESH on all 5 nodes after " + convergedAt + " ms without operator action" + clockDetail);
         }
     }
 
@@ -835,6 +858,25 @@ public class BlackboardVerifier {
             if (num(n.get("node")) == node) return n;
         }
         return null;
+    }
+
+    /** Each node's clock offset vs the control plane (null while it is down). */
+    private Map<Integer, Long> offsets() throws Exception {
+        Map<Integer, Long> out = new TreeMap<>();
+        for (Map<String, Object> m : listOf(get("/api/clock/drift"))) {
+            out.put((int) num(m.get("node")), m.get("offsetMs") == null ? null : num(m.get("offsetMs")));
+        }
+        return out;
+    }
+
+    /** All 5 offsets measured and node's within CLOCK_TOLERANCE_MS of every other node's. */
+    private static boolean alignedWithOthers(Map<Integer, Long> offsets, int node) {
+        if (offsets.size() < 5 || offsets.containsValue(null)) return false;
+        long mine = offsets.get(node);
+        for (long o : offsets.values()) {
+            if (Math.abs(o - mine) > CLOCK_TOLERANCE_MS) return false;
+        }
+        return true;
     }
 
     private void kill(int node) throws Exception {

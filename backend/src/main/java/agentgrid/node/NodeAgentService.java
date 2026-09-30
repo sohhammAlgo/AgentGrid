@@ -48,6 +48,7 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
     private final transient StrategyRegistry strategies;
     private final transient ExecutorService threadPool;
     private transient volatile Runnable syncListener;
+    private transient volatile boolean syncSeen;
     private transient volatile ClusterBlackboard blackboard;
 
     public NodeAgentService(String agentId) throws RemoteException {
@@ -309,9 +310,16 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
         return simulatedWorkMs;
     }
 
-    /** Runs after every sync() call; the failure detector uses the first one as its boot gate. */
+    /**
+     * Runs after every sync() call; the failure detector uses the first one as its boot gate.
+     * "agent" is bound before the listener exists, so the control plane's one-time first sync()
+     * can arrive first; it is remembered and forwarded here (the listener is idempotent).
+     */
     public void setSyncListener(Runnable listener) {
         this.syncListener = listener;
+        if (syncSeen && listener != null) {
+            listener.run();
+        }
     }
 
     @Override
@@ -320,9 +328,13 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
         synchronized (lamportClock) {
             time = lamportClock.update(controlLamport);
         }
+        syncSeen = true;
         Runnable listener = syncListener;
         if (listener != null) {
             listener.run();
+        } else {
+            System.out.println(java.time.LocalTime.now() + " [" + agentId + "] sync() from the control plane arrived before "
+                    + "the boot-gate listener was installed; forwarded when it is installed");
         }
         return time;
     }

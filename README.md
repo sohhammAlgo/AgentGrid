@@ -383,9 +383,11 @@ dashboard tab "Blackboard" shows every replica side by side.
 - **Restart**: a restarted replica pulls the records its live peers hold and asks the leader
   for a clock round before it reports `ready`; until then its reads are answered `NOT_READY`.
   It waits at most 3 s for the clock (then `clockSynced=false`), and not at all when
-  auto-sync is off. In the final verifier runs this wait did time out (BlackboardVerifier B5,
-  both runs): the restarted node went ready unsynced and kept its configured drift until the
-  next round. This is not yet diagnosed.
+  auto-sync is off. If it goes ready unsynced, it keeps asking the leader in the background
+  (short backoff) until a round includes it or auto-sync is turned off. A restart used to
+  miss its rejoin sync sometimes (8 of 36 restarts in `RejoinRepro`); the cause and fix are in
+  FIXES.md, Fix V. BlackboardVerifier B4/B5 now fail unless the restarted node's clock is within
+  100 ms of the others within 5 s of ready.
 
 #### Cost of STRONG vs EVENTUAL (BlackboardVerifier B10)
 These numbers come from two consecutive BlackboardVerifier runs. Each run had 3 STRONG and 3
@@ -418,6 +420,7 @@ java -cp build/classes agentgrid.control.BlackboardVerifier # Phase 5: replicate
 java -cp build/classes agentgrid.control.RestartStress      # restart all 5 nodes at once, 10 cycles
 java -cp build/classes agentgrid.control.JobFlakeCheck      # 30 jobs, no false ORPHANED
 java -cp build/classes agentgrid.control.JobFlakeCheck orphan 5  # kill the leader mid-job: time to JOB_ORPHANED
+java -cp build/classes agentgrid.control.RejoinRepro 18     # restart node 2 18 times: clock rejoins every time
 ```
 They drive the HTTP API (JobVerifier and BlackboardVerifier also read the bundled corpus to
 check answer sentences, and BlackboardVerifier checks the merge function in-process), print

@@ -77,6 +77,9 @@ public final class ClockCoordinator extends UnicastRemoteObject implements Clock
 
     @Override
     public synchronized void onElected(int electedNodeId) {
+        if (!active) {
+            log("coordinator active (elected)");
+        }
         active = true;
         long interval = config.getBerkeleyIntervalMs();
         if (interval > 0 && (periodic == null || periodic.isDone())) {
@@ -86,6 +89,9 @@ public final class ClockCoordinator extends UnicastRemoteObject implements Clock
 
     @Override
     public synchronized void onDemoted(int demotedNodeId, int newLeaderId) {
+        if (active) {
+            log("coordinator inactive (demoted; new leader " + newLeaderId + ")");
+        }
         active = false;
         if (periodic != null) {
             periodic.cancel(false);
@@ -128,11 +134,15 @@ public final class ClockCoordinator extends UnicastRemoteObject implements Clock
     @Override
     public boolean requestRejoinSync(int requester) throws RemoteException {
         if (!active || !autoSync) {
+            log("rejoin request from node " + requester + " rejected: active=" + active + " autoSync=" + autoSync);
             return false;
         }
         long requestedAt = System.currentTimeMillis();
         synchronized (roundLock) {
+            long lockWait = System.currentTimeMillis() - requestedAt;
             if (lastRoundStartMs >= requestedAt && lastRoundNodes.contains(requester)) {
+                log("rejoin request from node " + requester + ": covered by a round that started while it waited "
+                        + lockWait + " ms for the lock");
                 return true;
             }
             long wait = lastRoundStartMs + REJOIN_DEBOUNCE_MS - System.currentTimeMillis();
@@ -141,15 +151,27 @@ public final class ClockCoordinator extends UnicastRemoteObject implements Clock
                     Thread.sleep(wait);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
+                    log("rejoin request from node " + requester + ": interrupted during a " + wait + " ms debounce wait");
                     return false;
                 }
             }
             if (!active || !autoSync) {
+                log("rejoin request from node " + requester + " rejected after waiting: active=" + active + " autoSync=" + autoSync);
                 return false;
             }
-            doRound("rejoin of node " + requester);
-            return lastRoundNodes.contains(requester);
+            long t0 = System.currentTimeMillis();
+            LinkedHashMap<String, Object> r = doRound("rejoin of node " + requester);
+            boolean included = lastRoundNodes.contains(requester);
+            log("rejoin request from node " + requester + ": lock wait " + lockWait + " ms, debounce wait "
+                    + Math.max(0, wait) + " ms, round " + (System.currentTimeMillis() - t0) + " ms, included="
+                    + included + " skipped=" + r.get("skipped") + " (" + (System.currentTimeMillis() - requestedAt)
+                    + " ms after the request)");
+            return included;
         }
+    }
+
+    private void log(String msg) {
+        System.out.println(java.time.LocalTime.now() + " [Node " + nodeId + "] clock: " + msg);
     }
 
     @Override

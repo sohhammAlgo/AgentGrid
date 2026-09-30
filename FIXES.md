@@ -326,9 +326,7 @@ The submitted `replication/*` classes are unchanged. The integrated blackboard i
 - **Before/After Measurement**:
   - *Before (B7, auto-sync off, both runs)*: restarted nodes came back at their configured drift: 3001 / −1999 / 500 / 0 / 1500 ms and 3000 / −2000 / 499 / 0 / 1501 ms.
   - *After, B4 (both runs)*: restarted node 2 reported `clockSynced=true`, and offsets afterwards were N1–N5 = 32–34 ms and 90–91 ms.
-  - **Not fixed in every case.** In B5 of *both* final runs, restarted node 2 became ready with `clockSynced=false` after 3815 / 4085 ms and stayed at −2000 ms while the others were at 33 / 90 ms. The rejoin round did not include it within the 3 s wait.
-    - In an earlier run (bb3), B5 did sync.
-    - The node logs from these runs were overwritten by later restarts, so the cause is not diagnosed. No B-check asserts `clockSynced`, which is why B5 still passes.
+  - At first this was **not fixed in every case**: in B5 of both Phase 5 final runs, restarted node 2 became ready with `clockSynced=false` and stayed at −2000 ms. The cause and fix are in Fix V. B4 and B5 now fail unless the restarted node's clock is within 100 ms of every other node within 5 s of ready.
 
 ### Fix R: Berkeley Unified on the Leader (BerkeleyRound Removed)
 
@@ -399,3 +397,39 @@ The submitted `replication/*` classes are unchanged. The integrated blackboard i
     - Before: 30/30 COMPLETE.
     - After: 30/30 COMPLETE, 0 falsely ORPHANED.
     - Neither run saw a NODE_DOWN_DETECTED, so on an idle machine this check does not reproduce the flake. Its "before" evidence is the bb3 run above.
+
+### Fix V: A Restarted Node Sometimes Never Asked for Its Rejoin Clock Sync
+
+- **Bug Description**: a restarted node sometimes became ready with `clockSynced=false` and kept its configured drift until the next periodic round, up to 30 s later. The logs of the failing restarts all show `0 attempts, 15 polls without a leader`: the node never sent a rejoin request, because it did not know the leader during its 3 s clock wait. Its first election waits for a boot gate that opens on the control plane's first `sync()`, or after 3000 ms without one. That `sync()` was lost in two ways:
+  - **(a) Dropped on arrival.** `NodeMain` binds `agent` before it installs the sync listener. The monitor counts a node as UP once `agent` and `time` answer, so its one-time first `sync()` could arrive in that window, and `NodeAgentService.sync()` dropped it. Logged 3 times in the second repro run: `sync() from the control plane arrived before the boot-gate listener was installed`, 0.5–0.8 s after start.
+  - **(b) Never sent.** The monitor sends the first `sync()` only when it sees a node go from DOWN to UP. A kill and restart that fall between two monitor polls leave no DOWN observation (seen once: NODE_RESTARTED at 09:11:46.991 with no DOWN/UP pair).
+
+  In both cases the gate opened on the 3000 ms fallback, just as the 3 s clock wait expired, and nothing retried afterwards. The node's `clockSynced` flag could also lag a successful rejoin: the leader answers `true`, then calls `noteSynced()` asynchronously.
+  - **Not the cause:** debounce, leader reachability or timeouts. All 28 requests sent during the repro restarts returned `true`, within 22–907 ms; the longer ones had waited out the leader's 2 s debounce.
+- **Location**:
+  - [`node/NodeAgentService.java`](backend/src/main/java/agentgrid/node/NodeAgentService.java) (`sync`, `setSyncListener`) and [`node/NodeMain.java`](backend/src/main/java/agentgrid/node/NodeMain.java) (binding order);
+  - [`control/ClusterMonitor.java`](backend/src/main/java/agentgrid/control/ClusterMonitor.java) (`pollNode` first-sighting rule);
+  - [`node/ClusterBlackboard.java`](backend/src/main/java/agentgrid/node/ClusterBlackboard.java) (`catchUp`).
+- **What Changed in Integrated Version**:
+  - **Fix for (a):** `NodeAgentService` remembers a `sync()` that arrives before the listener exists and runs the listener when it is installed. Opening the gate is idempotent.
+  - **Fix for (b):** the restart handler calls `ClusterMonitor.markRestarted(id)`, so the next UP poll of the new process is treated as a first sighting (algorithm and auto-sync aligned, first `sync()` sent) even if no poll saw it down.
+  - **Node side:**
+    - A `true` from the leader marks the node synced at once.
+    - READY is still capped at 3 s. If the node is still unsynced then, it keeps asking the current leader in the background (backoff 250 ms doubling to 2 s, 5 s per request) until a round includes it or auto-sync is turned off.
+  - **Diagnostics kept:**
+    - Each rejoin attempt and its outcome are logged on the node, and the leader logs each request with its lock and debounce waits and whether the round included the node.
+    - `NodeProcessManager` now appends to `build/logs/node-<id>.log`, with a header per start, so a restart no longer overwrites the previous run's log.
+  - **Verifier:** B4 and B5 now FAIL unless, with auto-sync on, the restarted node's offset is within 100 ms of every other node's within 5 s of ready.
+- **Before/After Measurement** (`RejoinRepro`, restart node 2 in three modes: 5 s apart, back to back within 2 s of the previous rejoin round, right after a manual round):
+
+  | | Restarts | `clockSynced=false` at ready | Not within 100 ms of all nodes 5 s after ready |
+  |---|---|---|---|
+  | Before, run 1 | 18 | 4 (all `0 attempts, 15 polls without a leader`) | 2 |
+  | Before, run 2 (drop logged) | 18 | 4 (3 × cause a, 1 × cause b) | 3 |
+  | After | 18 | 0 | 0 (aligned 9–51 ms after ready) |
+
+  - In the "after" run the early `sync()` happened twice; both times it was remembered and the gate opened on it.
+  - Final runs (BlackboardVerifier ×2, ElectionVerifier, JobVerifier, RestartStress): 91 of 91 node starts with auto-sync on were synced at ready, and none needed the 3000 ms gate fallback. The 10 unsynced starts were B7's deliberate auto-sync-off restarts.
+  - B4 / B5 clocks aligned 28 / 11 ms and 8 / 8 ms after ready.
+  - **Not exercised live:** the background retry after READY never ran, because every rejoin completed within the 3 s wait. Four attempts to force it (kill the leader, then restart node 2 at once) also synced within 0.5 s.
+  - **Seen once:** a booting node 2 briefly made itself Bully leader because its ELECTION got no ANSWER in time (0.4 s), then accepted node 5. Its own rejoin round ran in that window and left all 5 clocks within 37 ms. This is existing Exp 4 boot behaviour and was not changed.
