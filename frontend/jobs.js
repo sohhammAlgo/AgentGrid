@@ -145,27 +145,52 @@
     refreshRecent();
   }
 
+  // The recent-jobs rows are clickable and refreshed every 3 s: each row is created once per
+  // job id and its cells are updated in place, so a click is not lost to a rebuilt row.
+  const recentRows = new Map();
+  let recentBody = null;
+
   async function refreshRecent() {
     try {
       const jobs = await AG.listJobs();
       const el = document.getElementById('job-recent');
       if (!jobs.length) {
+        recentRows.clear();
+        recentBody = null;
         el.replaceChildren(h('span', { className: 'job-stage-meta' }, 'No jobs yet.'));
         return;
       }
-      const rows = jobs.slice(0, 12).map(j => h('tr', {
-        className: 'job-row' + (j.jobId === currentJobId ? ' selected' : ''),
-        onclick: () => select(j.jobId)
-      }, [
-        h('td', { className: 'mono-cell' }, j.jobId),
-        h('td', { className: 'mono-cell' }, j.policy + (j.consistency ? ' / ' + j.consistency : '')),
-        h('td', {}, statusBadge(j.status)),
-        h('td', { className: 'mono-cell' }, j.makespanMs == null ? '—' : j.makespanMs + ' ms')
-      ]));
-      el.replaceChildren(h('table', { className: 'events-table' }, [
-        h('thead', {}, h('tr', {}, ['Job', 'Policy', 'Status', 'Makespan'].map(t => h('th', {}, t)))),
-        h('tbody', {}, rows)
-      ]));
+      if (!recentBody || !el.contains(recentBody)) {
+        recentRows.clear();
+        recentBody = h('tbody');
+        el.replaceChildren(h('table', { className: 'events-table' }, [
+          h('thead', {}, h('tr', {}, ['Job', 'Policy', 'Status', 'Makespan'].map(t => h('th', {}, t)))),
+          recentBody
+        ]));
+      }
+      const shown = jobs.slice(0, 12);
+      const keep = new Set(shown.map(j => j.jobId));
+      for (const [id, r] of recentRows) {
+        if (!keep.has(id)) { r.tr.remove(); recentRows.delete(id); }
+      }
+      shown.forEach((j, i) => {
+        let r = recentRows.get(j.jobId);
+        if (!r) {
+          r = { id: h('td', { className: 'mono-cell' }, j.jobId), policy: h('td', { className: 'mono-cell' }),
+                status: h('td'), makespan: h('td', { className: 'mono-cell' }), key: null };
+          r.tr = h('tr', { className: 'job-row', onclick: () => select(j.jobId) }, [r.id, r.policy, r.status, r.makespan]);
+          recentRows.set(j.jobId, r);
+        }
+        const key = [j.policy, j.consistency, j.status, j.makespanMs].join('|');
+        if (key !== r.key) {
+          r.key = key;
+          r.policy.textContent = j.policy + (j.consistency ? ' / ' + j.consistency : '');
+          r.status.replaceChildren(statusBadge(j.status));
+          r.makespan.textContent = j.makespanMs == null ? '—' : j.makespanMs + ' ms';
+        }
+        r.tr.classList.toggle('selected', j.jobId === currentJobId);
+        if (recentBody.children[i] !== r.tr) recentBody.insertBefore(r.tr, recentBody.children[i] || null);
+      });
     } catch (ignored) {}
   }
 

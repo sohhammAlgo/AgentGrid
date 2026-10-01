@@ -61,13 +61,21 @@ window.AgentGridPanels.exp4 = {
       return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
+    // Runs on every cluster update (up to 5 times a second): the options are created once per
+    // node and then only relabelled, so an open dropdown is not rebuilt under the cursor.
     function renderPicker() {
       const nodes = AG.getState().nodes;
-      const current = startSelect.value;
-      startSelect.innerHTML = nodes.map(n =>
-        `<option value="${n.id}" ${n.up ? '' : 'disabled'}>Node ${n.id}${n.up ? '' : ' [OFFLINE]'}</option>`
-      ).join('');
-      if (current) startSelect.value = current;
+      nodes.forEach(n => {
+        let opt = startSelect.querySelector(`option[value="${n.id}"]`);
+        if (!opt) {
+          opt = document.createElement('option');
+          opt.value = String(n.id);
+          startSelect.appendChild(opt);
+        }
+        const label = 'Node ' + n.id + (n.up ? '' : ' [OFFLINE]');
+        if (opt.textContent !== label) opt.textContent = label;
+        if (opt.disabled === !!n.up) opt.disabled = !n.up;
+      });
     }
 
     function renderElection(el) {

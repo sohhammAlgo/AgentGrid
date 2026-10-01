@@ -217,6 +217,12 @@
   // CLUSTER FLEET CARDS
   // =========================================================================
 
+  // Each node card is created once (keyed by node id) and then updated in place: cluster
+  // snapshots arrive every 200 ms to 1 s, and rebuilding the cards destroyed the Kill/Restart
+  // button between mousedown and mouseup, so clicks were lost.
+  const cards = new Map();
+  const PENDING_TIMEOUT_MS = 10000;
+
   function renderClusterGrid(nodes) {
     const grid = document.getElementById('cluster-grid');
     const badge = document.getElementById('online-count-badge');
@@ -225,86 +231,136 @@
     badge.textContent = `${onlineCount} / ${nodes.length} Online`;
     badge.className = `badge ${onlineCount === nodes.length ? 'online' : (onlineCount > 0 ? '' : 'offline')}`;
 
-    grid.innerHTML = nodes.map(n => {
-      const isUp = n.up;
-      const pool = n.poolSize || 1;
-      const depth = n.queueDepth === null ? 0 : n.queueDepth;
-      const running = Math.min(depth, pool);
-      const queued = Math.max(0, depth - pool);
-      const pct = Math.min(100, Math.round((depth / pool) * 100));
-      const driftSign = (n.clockOffsetMs !== null && n.clockOffsetMs >= 0) ? '+' : '';
-      const isHot = depth > pool;
-      const isBackup = isUp && state.election && state.election.backupId === n.id;
-      const roleBadges = (n.isLeader ? '<span class="badge leader">LEADER</span>' : '')
-        + (isBackup ? '<span class="badge backup">BACKUP</span>' : '');
-
-      return `
-        <div class="node-card ${isUp ? '' : 'offline'} ${n.isLeader ? 'is-leader' : ''}" id="node-card-${n.id}">
-          <div class="node-card-header">
-            <div class="node-title-wrap">
-              <span class="node-title">Node ${n.id}</span>
-              <span class="node-port">port :${n.port}</span>
-            </div>
-            <div class="node-badges">
-              ${roleBadges}
-              <span class="badge ${isUp ? 'online' : 'offline'}">${isUp ? 'ONLINE' : 'OFFLINE'}</span>
-            </div>
-          </div>
-
-          <div class="pool-metric">
-            <div class="pool-label-row">
-              <span>Pool: ${running} running, ${queued} queued</span>
-              <span class="mono-cell">${pct}%</span>
-            </div>
-            <div class="pool-progress-bar">
-              <div class="pool-progress-fill ${isHot ? 'hot' : ''}" style="width: ${pct}%"></div>
-            </div>
-          </div>
-
-          <div class="node-stats-row">
-            <div class="stat-item">
-              <span class="stat-label">clock vs control plane</span>
-              <span class="stat-val ${n.clockOffsetMs === 0 ? '' : 'text-cyan'}">${n.clockOffsetMs === null ? '—' : driftSign + n.clockOffsetMs + ' ms'}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Lamport</span>
-              <span class="stat-val">${n.lamport === null ? '—' : n.lamport}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">leader view</span>
-              <span class="stat-val">${n.leaderView === null || n.leaderView === undefined ? '—' : 'Node ' + n.leaderView}</span>
-            </div>
-          </div>
-
-          <div class="node-card-actions">
-            <button class="btn btn-sm btn-danger" onclick="window.AgentGridActions.killNode(${n.id})" ${!isUp ? 'disabled' : ''}>
-              Kill
-            </button>
-            <button class="btn btn-sm btn-warning" onclick="window.AgentGridActions.restartNode(${n.id})">
-              Restart
-            </button>
-          </div>
-        </div>
-      `;
-    }).join('');
+    nodes.forEach(n => {
+      let c = cards.get(n.id);
+      if (!c) {
+        c = createCard(n.id);
+        cards.set(n.id, c);
+        grid.appendChild(c.root);
+      }
+      c.node = n;
+      const isBackup = !!(n.up && state.election && state.election.backupId === n.id);
+      const key = JSON.stringify([n.up, n.isLeader, isBackup, n.port, n.poolSize, n.queueDepth,
+        n.clockOffsetMs, n.lamport, n.leaderView]);
+      if (key !== c.key) {
+        c.key = key;
+        updateCard(c, n, isBackup);
+      }
+      settlePending(c);
+    });
   }
 
-  window.AgentGridActions = {
-    killNode: async (nodeId) => {
-      try {
-        await fetch(`/api/nodes/${nodeId}/kill`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-      } catch (err) {
-        alert('Failed to kill node ' + nodeId + ': ' + err.message);
+  function createCard(id) {
+    const h = window.AgentGrid.h;
+    const c = { id, key: null, node: null, pending: null };
+    c.title = h('span', { className: 'node-title' }, 'Node ' + id);
+    c.port = h('span', { className: 'node-port' });
+    c.leaderBadge = h('span', { className: 'badge leader', style: { display: 'none' } }, 'LEADER');
+    c.backupBadge = h('span', { className: 'badge backup', style: { display: 'none' } }, 'BACKUP');
+    c.statusBadge = h('span', { className: 'badge' });
+    c.poolText = h('span');
+    c.poolPct = h('span', { className: 'mono-cell' });
+    c.poolFill = h('div', { className: 'pool-progress-fill' });
+    c.clock = h('span', { className: 'stat-val' });
+    c.lamport = h('span', { className: 'stat-val' });
+    c.leaderView = h('span', { className: 'stat-val' });
+    c.killBtn = h('button', { className: 'btn btn-sm btn-danger', type: 'button' }, 'Kill');
+    c.restartBtn = h('button', { className: 'btn btn-sm btn-warning', type: 'button' }, 'Restart');
+    c.note = h('div', { className: 'node-card-note' });
+    const stat = (label, val) => h('div', { className: 'stat-item' }, [h('span', { className: 'stat-label' }, label), val]);
+    c.root = h('div', { className: 'node-card', id: 'node-card-' + id }, [
+      h('div', { className: 'node-card-header' }, [
+        h('div', { className: 'node-title-wrap' }, [c.title, c.port]),
+        h('div', { className: 'node-badges' }, [c.leaderBadge, c.backupBadge, c.statusBadge])
+      ]),
+      h('div', { className: 'pool-metric' }, [
+        h('div', { className: 'pool-label-row' }, [c.poolText, c.poolPct]),
+        h('div', { className: 'pool-progress-bar' }, c.poolFill)
+      ]),
+      h('div', { className: 'node-stats-row' }, [
+        stat('clock vs control plane', c.clock), stat('Lamport', c.lamport), stat('leader view', c.leaderView)
+      ]),
+      h('div', { className: 'node-card-actions' }, [c.killBtn, c.restartBtn]),
+      c.note
+    ]);
+    // Handlers are attached once, here; the buttons are never recreated.
+    c.killBtn.addEventListener('click', () => nodeAction(c, 'kill'));
+    c.restartBtn.addEventListener('click', () => nodeAction(c, 'restart'));
+    return c;
+  }
+
+  function updateCard(c, n, isBackup) {
+    const pool = n.poolSize || 1;
+    const depth = n.queueDepth === null || n.queueDepth === undefined ? 0 : n.queueDepth;
+    const pct = Math.min(100, Math.round((depth / pool) * 100));
+    c.root.classList.toggle('offline', !n.up);
+    c.root.classList.toggle('is-leader', !!n.isLeader);
+    c.port.textContent = 'port :' + n.port;
+    c.leaderBadge.style.display = n.isLeader ? '' : 'none';
+    c.backupBadge.style.display = isBackup ? '' : 'none';
+    c.statusBadge.className = 'badge ' + (n.up ? 'online' : 'offline');
+    c.statusBadge.textContent = n.up ? 'ONLINE' : 'OFFLINE';
+    c.poolText.textContent = `Pool: ${Math.min(depth, pool)} running, ${Math.max(0, depth - pool)} queued`;
+    c.poolPct.textContent = pct + '%';
+    c.poolFill.style.width = pct + '%';
+    c.poolFill.classList.toggle('hot', depth > pool);
+    const off = n.clockOffsetMs;
+    c.clock.textContent = off === null || off === undefined ? '—' : (off >= 0 ? '+' : '') + off + ' ms';
+    c.clock.classList.toggle('text-cyan', off !== 0 && off !== null && off !== undefined);
+    c.lamport.textContent = n.lamport === null || n.lamport === undefined ? '—' : String(n.lamport);
+    c.leaderView.textContent = n.leaderView === null || n.leaderView === undefined ? '—' : 'Node ' + n.leaderView;
+    if (!c.pending) setButtons(c);
+  }
+
+  function setButtons(c) {
+    c.killBtn.disabled = !(c.node && c.node.up);
+    c.restartBtn.disabled = false;
+    c.killBtn.textContent = 'Kill';
+    c.restartBtn.textContent = 'Restart';
+  }
+
+  /**
+   * Kill/Restart: both buttons of this node are disabled and labelled at once; repeat clicks are
+   * ignored until the API call has returned AND a later snapshot shows the new state (DOWN
+   * after a kill, UP after a restart), or 10 s have passed.
+   */
+  async function nodeAction(c, action) {
+    if (c.pending) return;
+    const p = { action, returned: false, timer: null };
+    c.pending = p;
+    c.note.textContent = '';
+    c.killBtn.disabled = true;
+    c.restartBtn.disabled = true;
+    (action === 'kill' ? c.killBtn : c.restartBtn).textContent = action === 'kill' ? 'Killing...' : 'Restarting...';
+    p.timer = setTimeout(() => {
+      if (c.pending === p) finishPending(c, 'No ' + (action === 'kill' ? 'DOWN' : 'UP') + ' state seen within 10 s.');
+    }, PENDING_TIMEOUT_MS);
+    try {
+      const res = await fetch(`/api/nodes/${c.id}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'HTTP ' + res.status }));
+        throw new Error(err.error || ('HTTP ' + res.status));
       }
-    },
-    restartNode: async (nodeId) => {
-      try {
-        await fetch(`/api/nodes/${nodeId}/restart`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-      } catch (err) {
-        alert('Failed to restart node ' + nodeId + ': ' + err.message);
-      }
+      if (c.pending === p) p.returned = true;   // settled by the next snapshot showing the new state
+    } catch (err) {
+      if (c.pending === p) finishPending(c, (action === 'kill' ? 'Kill' : 'Restart') + ' failed: ' + err.message);
     }
-  };
+  }
+
+  function settlePending(c) {
+    const p = c.pending;
+    if (!p || !p.returned || !c.node) return;
+    if ((p.action === 'kill' && !c.node.up) || (p.action === 'restart' && c.node.up)) {
+      finishPending(c, '');
+    }
+  }
+
+  function finishPending(c, message) {
+    if (c.pending && c.pending.timer) clearTimeout(c.pending.timer);
+    c.pending = null;
+    c.note.textContent = message;   // textContent only
+    setButtons(c);
+  }
 
   // =========================================================================
   // DYNAMIC MODULE TABS

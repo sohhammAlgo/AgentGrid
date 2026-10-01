@@ -19,20 +19,32 @@ window.AgentGridPanels.exp5 = {
     const autoNote = h('span', { className: 'job-stage-meta' }, '');
 
     const wNode = h('select', { className: 'form-control' }, nodeOptions());
-    const wKey = h('input', { className: 'form-control', maxLength: 128, value: 'demo/k1', placeholder: 'key (max 128)' });
-    const wValue = h('input', { className: 'form-control', maxLength: 1024, value: 'hello', placeholder: 'value (max 1024)' });
+    // No maxLength here: the browser would silently cut a longer paste and store a different,
+    // shorter key. The server enforces key <= 128 and value <= 1024 characters (400 otherwise)
+    // and its message is shown below.
+    const wKey = h('input', { className: 'form-control', value: 'demo/k1', placeholder: 'key (max 128)' });
+    const wValue = h('input', { className: 'form-control', value: 'hello', placeholder: 'value (max 1024)' });
     const wMode = h('select', { className: 'form-control' }, [h('option', { value: 'STRONG' }, 'STRONG'), h('option', { value: 'EVENTUAL' }, 'EVENTUAL')]);
     const wButton = h('button', { className: 'btn btn-primary', type: 'button' }, 'Write');
     const wResult = h('div', { className: 'job-stage-meta', style: { marginTop: '8px' } }, '');
 
-    const rKey = h('input', { className: 'form-control', maxLength: 128, value: 'demo/k1' });
+    const rKey = h('input', { className: 'form-control', value: 'demo/k1' });
     const rButton = h('button', { className: 'btn btn-primary', type: 'button' }, 'Read from every node');
     const rResult = h('div', {});
 
     const prefix = h('input', { className: 'form-control', maxLength: 128, value: '', placeholder: 'key prefix filter (empty = all)' });
     const hideJobs = h('input', { type: 'checkbox', checked: true });
     const metricsBox = h('div', { className: 'exp4-stats', style: { gridTemplateColumns: 'repeat(4, 1fr)' } });
-    const replicaBox = h('div', {});
+    // The replica table's scroll container, head and body persist across the 2 s refreshes
+    // (rebuilding them reset the scroll position); a refresh with unchanged data is skipped.
+    const replicaNote = h('div', { className: 'job-stage-meta', style: { marginBottom: '6px' } });
+    const replicaError = h('div', { className: 'text-rose' });
+    const replicaHead = h('thead');
+    const replicaBody = h('tbody');
+    const replicaBox = h('div', {}, [replicaError, replicaNote,
+      h('div', { className: 'exp4-table-wrap', style: { maxHeight: '420px' } },
+        h('table', { className: 'events-table' }, [replicaHead, replicaBody]))]);
+    let replicaSig = null;
 
     const box = (title, children) => h('div', { className: 'exp4-box' }, [h('h4', {}, title)].concat(children));
 
@@ -131,6 +143,10 @@ window.AgentGridPanels.exp5 = {
 
     async function refreshReplicas() {
       const o = await AG.bbOverview(prefix.value);
+      replicaError.textContent = '';
+      const sig = JSON.stringify([o, prefix.value, hideJobs.checked]);
+      if (sig === replicaSig) return;
+      replicaSig = sig;
       const nodes = o.nodes || [];
       const keys = new Set();
       nodes.forEach(n => (n.entries || []).forEach(e => keys.add(e.key)));
@@ -151,12 +167,10 @@ window.AgentGridPanels.exp5 = {
         return h('td', { className: 'mono-cell' + (e.stale ? ' bb-stale' : ''), title: e.value + '\nts ' + e.timestamp + ', writer node ' + e.writer + (e.stale ? '\nSTALE: another replica holds a newer write' : '') },
           [h('div', {}, shortValue), h('div', { className: 'job-stage-meta' }, 'ts ' + e.timestamp + ' · N' + e.writer)]);
       }))));
-      replicaBox.replaceChildren(
-        h('div', { className: 'job-stage-meta', style: { marginBottom: '6px' } },
-          o.keys + ' keys in total' + (keyList.length > shown.length ? ', showing the first ' + shown.length : '')
-          + (hideJobs.checked ? ' (job/ keys hidden)' : '') + '. EVENTUAL lag ' + o.eventualLagMs + ' ms (simulated). Stale cells are highlighted.'),
-        h('div', { className: 'exp4-table-wrap', style: { maxHeight: '420px' } }, h('table', { className: 'events-table' }, [h('thead', {}, head), h('tbody', {}, rows)]))
-      );
+      replicaNote.textContent = o.keys + ' keys in total' + (keyList.length > shown.length ? ', showing the first ' + shown.length : '')
+        + (hideJobs.checked ? ' (job/ keys hidden)' : '') + '. EVENTUAL lag ' + o.eventualLagMs + ' ms (simulated). Stale cells are highlighted.';
+      replicaHead.replaceChildren(head);
+      replicaBody.replaceChildren(...rows);
     }
 
     async function refresh() {
@@ -164,7 +178,8 @@ window.AgentGridPanels.exp5 = {
       try {
         await Promise.all([refreshMetrics(), refreshReplicas()]);
       } catch (err) {
-        replicaBox.replaceChildren(h('span', { className: 'text-rose' }, err.message));
+        replicaError.textContent = err.message;
+        replicaSig = null;
       }
     }
 
