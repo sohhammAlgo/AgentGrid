@@ -28,9 +28,14 @@
     <!-- Cluster Nodes Overview Bar -->
     <section class="cluster-section">
       <div class="section-header">
-        <h2>Cluster Node Fleet (5 Nodes)</h2>
-        <span class="badge" id="online-count-badge">0 / 5 Online</span>
+        <div class="events-title-wrap">
+          <h2>Cluster Node Fleet</h2>
+          <span class="badge" id="online-count-badge">— Online</span>
+          <span class="badge" id="membership-badge">epoch —</span>
+        </div>
+        <div class="fleet-controls" id="fleet-controls"></div>
       </div>
+      <p class="fleet-caption">Clock: offset from the control-plane clock; Berkeley converges nodes to their mean, not real time.</p>
       <div class="cluster-grid" id="cluster-grid">
         <!-- Node cards injected dynamically -->
       </div>

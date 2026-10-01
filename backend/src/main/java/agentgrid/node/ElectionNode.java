@@ -42,7 +42,8 @@ public final class ElectionNode extends UnicastRemoteObject implements NodeElect
     }
 
     private final int nodeId;
-    private final transient TreeMap<Integer, Integer> ports;
+    /** Member id -> port; replaced as a whole when a new membership epoch is applied. */
+    private transient volatile TreeMap<Integer, Integer> ports;
     private final transient NodeEventBuffer events;
     private final transient LeaderLifecycleRegistry lifecycle;
     private final transient ExecutorService exec = Executors.newCachedThreadPool(daemon("election-" ));
@@ -114,9 +115,23 @@ public final class ElectionNode extends UnicastRemoteObject implements NodeElect
 
     /** Other node ids in ring order (ascending id, wrapping) starting after this node. */
     List<Integer> successors() {
-        List<Integer> out = new ArrayList<>(ports.tailMap(nodeId, false).keySet());
-        out.addAll(ports.headMap(nodeId, false).keySet());
+        TreeMap<Integer, Integer> p = ports;
+        List<Integer> out = new ArrayList<>(p.tailMap(nodeId, false).keySet());
+        out.addAll(p.headMap(nodeId, false).keySet());
         return out;
+    }
+
+    /**
+     * Replaces the peer set with the members of a newly applied membership epoch. Bully's
+     * higher/lower ids and the ring order (ascending ids) follow it; cached stubs of removed
+     * members are dropped. A leader that is no longer a member stops answering pings, so the
+     * failure detector elects a new one as usual.
+     */
+    public void updatePeers(Map<Integer, Integer> nodePortMap) {
+        TreeMap<Integer, Integer> next = new TreeMap<>(nodePortMap);
+        ports = next;
+        stubs.keySet().removeIf(id -> !next.containsKey(id));
+        System.out.println("[Node " + nodeId + "] election peers now " + next.keySet());
     }
 
     /** Starts an election with the currently selected algorithm. */

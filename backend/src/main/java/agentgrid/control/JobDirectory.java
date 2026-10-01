@@ -123,6 +123,16 @@ public class JobDirectory {
         }
     }
 
+    /** Id of a job that is QUEUED or RUNNING, or null if none is (membership removals wait for it). */
+    public synchronized String activeJobId() {
+        for (Job j : jobs.values()) {
+            if (j.getStatus().isActive()) {
+                return j.getJobId();
+            }
+        }
+        return null;
+    }
+
     /** Known jobs, most recent first. */
     public synchronized List<Job> list(int limit) {
         List<Job> all = new ArrayList<>(jobs.values());

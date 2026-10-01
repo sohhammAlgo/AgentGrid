@@ -61,20 +61,16 @@ window.AgentGridPanels.exp4 = {
       return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    // Runs on every cluster update (up to 5 times a second): the options are created once per
-    // node and then only relabelled, so an open dropdown is not rebuilt under the cursor.
+    // Runs on every cluster update (up to 5 times a second) and on membership changes: options
+    // follow the members (removed nodes dropped, added ones inserted) and are otherwise only
+    // relabelled in place, so an open dropdown is not rebuilt under the cursor.
     function renderPicker() {
-      const nodes = AG.getState().nodes;
-      nodes.forEach(n => {
-        let opt = startSelect.querySelector(`option[value="${n.id}"]`);
-        if (!opt) {
-          opt = document.createElement('option');
-          opt.value = String(n.id);
-          startSelect.appendChild(opt);
-        }
-        const label = 'Node ' + n.id + (n.up ? '' : ' [OFFLINE]');
-        if (opt.textContent !== label) opt.textContent = label;
-        if (opt.disabled === !!n.up) opt.disabled = !n.up;
+      const byId = new Map(AG.getState().nodes.map(n => [n.id, n]));
+      AG.fillNodeSelect(startSelect, (id, n) => 'Node ' + id + (n && !n.up ? ' [OFFLINE]' : ''));
+      [...startSelect.options].forEach(opt => {
+        const n = byId.get(parseInt(opt.value, 10));
+        const down = !n || !n.up;
+        if (opt.disabled !== down) opt.disabled = down;
       });
     }
 
@@ -181,6 +177,9 @@ window.AgentGridPanels.exp4 = {
       panel._subscribed = true;
       AG.onElectionUpdate(el => panel._renderElection(el));
       AG.onClusterUpdate(() => {
+        if (document.getElementById('exp4-root')) panel._renderPicker();
+      });
+      AG.onMembershipChange(() => {
         if (document.getElementById('exp4-root')) panel._renderPicker();
       });
     }

@@ -433,3 +433,65 @@ The submitted `replication/*` classes are unchanged. The integrated blackboard i
   - B4 / B5 clocks aligned 28 / 11 ms and 8 / 8 ms after ready.
   - **Not exercised live:** the background retry after READY never ran, because every rejoin completed within the 3 s wait. Four attempts to force it (kill the leader, then restart node 2 at once) also synced within 0.5 s.
   - **Seen once:** a booting node 2 briefly made itself Bully leader because its ELECTION got no ANSWER in time (0.4 s), then accepted node 5. Its own rejoin round ran in that window and left all 5 clocks within 37 ms. This is existing Exp 4 boot behaviour and was not changed.
+
+---
+
+## Elastic Cluster Membership
+
+### Fix W: Node RMI Stubs Advertised a LAN Address That Could Disappear Mid-Run
+
+- **Bug Description**: RMI puts `java.rmi.server.hostname` (by default the machine's LAN IP) into every stub a node exports. While a cluster was running, the Wi-Fi address changed from 10.10.127.176 to 10.10.177.24. Every stub still pointed at the old address, so all node-to-node and control-plane-to-node calls on exported objects failed:
+  - `/api/rmi/invoke` returned `Exception creating connection to: 10.10.127.176; ... Connect timed out` for RETRIEVE and SUMMARIZE alike;
+  - `/api/election` showed every leader view `null`;
+  - node 2 ran Berkeley rounds "over 1 nodes ... skipped [1, 3, 4, 5]".
+
+  Registry lookups still worked, because they use `localhost`. Earlier phases had seen the same address in stubs (10.251.80.78; the 2 s connect stall in Phase 3B).
+- **Location**: [`node/NodeMain.java`](backend/src/main/java/agentgrid/node/NodeMain.java) (startup, before RMI initialises).
+- **What Changed**: a node sets `java.rmi.server.hostname=127.0.0.1` unless it is already set. Every node runs on this machine and every lookup already used `localhost`. The control plane exports no remote objects and is unaffected.
+- **Before/After**:
+  - *Before*: on the cluster started at 10.10.127.176, 2 of 2 RMI-invoke calls failed with the connect timeout after the address change, and no leader was agreed.
+  - *After*: on the same machine (now 10.10.177.24), SUMMARIZE calls returned their summaries, and all six final verifier runs (MembershipVerifier, BlackboardVerifier, ElectionVerifier, JobVerifier, RestartStress, JobFlakeCheck) passed on fresh control planes.
+  - Not tested: an address change *during* a verifier run with the fix in place.
+
+### Fix X: The Cluster Was Hard-Coded to the Five Nodes of cluster.properties
+
+- **Bug Description**: the cluster could not change size. Every component took its node set from `cluster.properties` once at startup (`ClusterConfig` was immutable):
+  - the monitor, Bully/Ring peers, blackboard replicas and the STRONG majority ("3 of 5"), the Berkeley round, the orchestrator's workers, and the process manager (`ClusterConfig.load().getNode(id)` for every start);
+  - the dashboard: "Cluster Node Fleet (5 Nodes)", a 5-column grid, a `[1, 2, 3, 4, 5]` fallback in exp5, and "need a live majority (3 of 5)".
+- **Location**:
+  - [`node/ClusterConfig.java`](backend/src/main/java/agentgrid/node/ClusterConfig.java), [`node/ElectionNode.java`](backend/src/main/java/agentgrid/node/ElectionNode.java), [`node/ClusterBlackboard.java`](backend/src/main/java/agentgrid/node/ClusterBlackboard.java), [`node/NodeProcessManager.java`](backend/src/main/java/agentgrid/node/NodeProcessManager.java);
+  - [`orchestrator/ClusterView.java`](backend/src/main/java/agentgrid/orchestrator/ClusterView.java), [`orchestrator/BalancingPolicy.java`](backend/src/main/java/agentgrid/orchestrator/BalancingPolicy.java);
+  - [`control/ClusterMonitor.java`](backend/src/main/java/agentgrid/control/ClusterMonitor.java), [`control/ControlPlaneMain.java`](backend/src/main/java/agentgrid/control/ControlPlaneMain.java);
+  - `frontend/` (index.html, app.js, styles.css, exp1–exp6), `backend/stop-cluster.ps1`.
+- **What Changed**: an immutable `Membership {epoch, members}` with one authority, the control plane's `MembershipManager`.
+  - Nodes apply only a higher epoch. `ClusterConfig` reads the current membership for ids, ports, pool sizes, weights and the quorum `floor(n/2)+1`, so every caller above follows it.
+  - `ElectionNode.updatePeers` replaces Bully's and the ring's peer set.
+  - The blackboard uses one membership snapshot per STRONG decision, and drops pending EVENTUAL deliveries to removed peers.
+  - A joining node holds its boot gate (no election) until it is a member, and skips the clock wait (it is synced once it has joined).
+  - Add/remove follow the decided order and guards (README, Elastic membership).
+  - The dashboard fleet, every node dropdown, the exp5 quorum text and the exp6 columns follow the membership.
+- **Before/After** (`MembershipVerifier`, fresh control plane):
+  - *Before*: 5 members, no add or remove; quorum fixed at 3.
+  - *After*:
+    - Adding node 6 took 691 ms, with all 6 on epoch 2 and quorum 4. All 6 accepted node 6 as leader 21 ms after MEMBERSHIP_CHANGED, and it ran 6 of 42 WEIGHTED subtasks.
+    - Node 6 held a key written before it joined. A STRONG write was acknowledged by 6. The join's Berkeley round covered 6 with a spread of 1 ms.
+    - With 3 of 6 live, STRONG was refused ("needs 4"). The cluster grew to 9 members and the 10th add got 409.
+    - The add-failure path (port held) gave 500, NODE_ADD_FAILED, the membership unchanged and no process left.
+    - The ids of removed or failed adds were not reused. Removing the leader gave a new agreed leader in 1352 ms.
+    - The guards returned 409 for a running job, a live removal below quorum, and fewer than 3 members, and 404 for an unknown id. Removing a dead node was allowed.
+    - BlackboardVerifier, ElectionVerifier, JobVerifier, RestartStress and JobFlakeCheck all passed on the 5-member default.
+
+### Fix Y: Exp 1 / Exp 2 SUMMARIZE Calls Named No Document
+
+- **Bug Description**: `/api/rmi/invoke` sent every subtask the input `query-chunk-N`. SUMMARIZE expects a payload naming a corpus document, so every SUMMARIZE call from the Exp 1 and Exp 2 panels returned `no document (none) in the corpus`.
+- **Location**: [`control/ControlPlaneMain.java`](backend/src/main/java/agentgrid/control/ControlPlaneMain.java) (`handleRmiInvoke`); `frontend/panels/exp1.js`, `exp2.js`.
+- **What Changed**:
+  - For SUMMARIZE, the control plane sends an encoded payload with a query and `doc`: the requested document, or the first corpus document by default. An unknown id is a 400.
+  - `GET /api/corpus` lists the documents, and the panels have a document dropdown.
+  - The other subtask types are unchanged.
+- **Before/After**:
+  - *Before*: the SUMMARIZE output was "no document (none) in the corpus".
+  - *After*:
+    - The default call summarised `doc-01` "Remote Method Invocation" in 2 sentences.
+    - `doc-07` gave "Bully Election" (3 calls in 172 ms).
+    - `"doc": "nope"` returned 400 "Unknown corpus document: nope".

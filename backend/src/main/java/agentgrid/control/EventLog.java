@@ -128,9 +128,14 @@ public class EventLog {
      * Records a control-plane initiated event. Advances the control plane's Lamport clock via tick().
      */
     public synchronized Event record(String type, int node, String details, long nodeWallMs) {
+        return record(type, node, details, nodeWallMs, null);
+    }
+
+    /** As record(), with structured fields (e.g. MEMBERSHIP_CHANGED carries epoch and members). */
+    public synchronized Event record(String type, int node, String details, long nodeWallMs, Map<String, Object> fields) {
         long lamport = lamportClock.tick();
         long seq = seqGenerator.incrementAndGet();
-        Event event = new Event(seq, type, node, details, lamport, nodeWallMs);
+        Event event = new Event(seq, type, node, details, lamport, nodeWallMs, System.currentTimeMillis(), null, fields);
         buffer[(int) ((seq - 1) % CAPACITY)] = event;
         notifyListeners(event);
         return event;

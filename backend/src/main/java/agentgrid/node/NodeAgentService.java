@@ -50,6 +50,7 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
     private transient volatile Runnable syncListener;
     private transient volatile boolean syncSeen;
     private transient volatile ClusterBlackboard blackboard;
+    private transient volatile ClusterConfig clusterConfig;
 
     public NodeAgentService(String agentId) throws RemoteException {
         this(agentId, DEFAULT_POOL_SIZE);
@@ -249,6 +250,26 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
     /** The node's blackboard replica, where this worker posts the findings it produces. */
     public void setBlackboard(ClusterBlackboard blackboard) {
         this.blackboard = blackboard;
+    }
+
+    /** The node's cluster configuration, whose membership applyMembership() updates. */
+    public void setClusterConfig(ClusterConfig config) {
+        this.clusterConfig = config;
+    }
+
+    @Override
+    public boolean applyMembership(Membership membership) throws RemoteException {
+        ClusterConfig c = clusterConfig;
+        if (c == null) {
+            throw new RemoteException("node is still starting; no cluster configuration yet");
+        }
+        return c.applyMembership(membership);
+    }
+
+    @Override
+    public long getMembershipEpoch() throws RemoteException {
+        ClusterConfig c = clusterConfig;
+        return c == null ? -1 : c.membership().getEpoch();
     }
 
     private void simulateWork() {

@@ -11,14 +11,34 @@ window.AgentGridPanels.exp5 = {
     const h = (...a) => AG.h(...a);
     const panel = this;
 
-    const nodeIds = () => (AG.getState().nodes || []).map(n => n.id);
-    const nodeOptions = () => (nodeIds().length ? nodeIds() : [1, 2, 3, 4, 5]).map(id => h('option', { value: id }, 'Node ' + id));
+    // Node ids come from the current membership (added / removed nodes included).
+    const nodeIds = () => AG.memberIds();
 
     // ---- controls -------------------------------------------------------------------
     const autoToggle = h('input', { type: 'checkbox', id: 'exp5-auto' });
     const autoNote = h('span', { className: 'job-stage-meta' }, '');
 
-    const wNode = h('select', { className: 'form-control' }, nodeOptions());
+    const wNode = h('select', { className: 'form-control' });
+    AG.fillNodeSelect(wNode);
+    // "needs a live quorum of Q of N members": follows the membership.
+    const quorumText = h('span');
+    const renderQuorum = () => {
+      const m = AG.getMembership();
+      quorumText.textContent = m
+        ? 'a live quorum of floor(n/2)+1 = ' + m.quorum + ' of the ' + m.size + ' members (epoch ' + m.epoch + ')'
+        : 'a live quorum of floor(n/2)+1 members';
+    };
+    renderQuorum();
+    panel._onMembership = () => {
+      AG.fillNodeSelect(wNode);
+      renderQuorum();
+    };
+    if (!panel._membershipSubscribed) {
+      panel._membershipSubscribed = true;
+      AG.onMembershipChange(m => {
+        if (document.getElementById('exp5-root') && panel._onMembership) panel._onMembership(m);
+      });
+    }
     // No maxLength here: the browser would silently cut a longer paste and store a different,
     // shorter key. The server enforces key <= 128 and value <= 1024 characters (400 otherwise)
     // and its message is shown below.
@@ -51,10 +71,12 @@ window.AgentGridPanels.exp5 = {
     container.replaceChildren(h('div', { className: 'panel-inner', id: 'exp5-root' }, [
       h('div', { style: { marginBottom: '16px' } }, [
         h('h3', { style: { fontSize: '16px', fontWeight: '700' } }, 'Experiment 5: Replicated Blackboard'),
-        h('p', { style: { fontSize: '13px', color: 'var(--text-muted)' } },
-          'STRONG writes replicate synchronously to every live replica and need a live majority (3 of 5); with fewer they are refused and nothing is written. '
+        h('p', { style: { fontSize: '13px', color: 'var(--text-muted)' } }, [
+          'STRONG writes replicate synchronously to every live replica and need ', quorumText,
+          '; with fewer they are refused and nothing is written. '
           + 'EVENTUAL writes are acknowledged locally and pushed to peers after a simulated lag, with retries and periodic anti-entropy. '
-          + 'Replicas resolve conflicts by last-writer-wins on the writer node\'s Berkeley-corrected clock (ties go to the higher node id).')
+          + 'Replicas resolve conflicts by last-writer-wins on the writer node\'s Berkeley-corrected clock (ties go to the higher node id). '
+          + 'Replication is not fenced by membership epoch; anti-entropy covers gaps.'])
       ]),
       box('Clock sync', [h('label', { style: { display: 'flex', gap: '8px', alignItems: 'center', fontSize: '13px' } },
         [autoToggle, 'Auto Berkeley sync (periodic on the leader, and on node rejoin)', autoNote])]),

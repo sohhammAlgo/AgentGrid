@@ -87,6 +87,7 @@ public final class ClusterBlackboard extends UnicastRemoteObject implements Clus
     private long lastStamp;
     private long version;
     private volatile boolean ready;
+    private volatile boolean joining;
     private volatile String snapshotSource = "not yet pulled";
 
     public ClusterBlackboard(int nodeId, ClusterConfig config, TimeServiceImpl clock, NodeEventBuffer events,
@@ -98,6 +99,11 @@ public final class ClusterBlackboard extends UnicastRemoteObject implements Clus
         this.events = events;
         this.clockCoordinator = clockCoordinator;
         this.leaderView = leaderView;
+    }
+
+    /** Marks this node as joining the cluster (set before start()). */
+    public void setJoining(boolean joining) {
+        this.joining = joining;
     }
 
     /** Starts the boot catch-up and the periodic anti-entropy. */
@@ -140,12 +146,17 @@ public final class ClusterBlackboard extends UnicastRemoteObject implements Clus
     private BlackboardWriteOutcome writeStrong(String key, String value) {
         long t0 = System.nanoTime();
         boolean quiet = isJobKey(key);
-        List<Integer> live = probeLive();
-        int majority = config.majority();
+        // One membership snapshot for the whole decision: quorum = floor(n / 2) + 1 of the n
+        // members of this node's current epoch. (No epoch fencing on replication: a replica
+        // applies the record whatever epoch it holds; see README, limitations.)
+        Membership members = config.membership();
+        List<Integer> live = probeLive(members);
+        int majority = members.quorum();
         if (live.size() < majority) {
             long latency = elapsedMs(t0);
-            String msg = "only " + live.size() + " of " + config.getNodeIds().size() + " nodes live (" + live
-                    + "); a STRONG write needs " + majority + "; nothing was written";
+            String msg = "only " + live.size() + " of " + members.size() + " members live (" + live
+                    + "); a STRONG write needs " + majority + " (quorum of " + members.size() + " members, epoch "
+                    + members.getEpoch() + "); nothing was written";
             if (!quiet) {
                 Map<String, Object> f = fields(key, "STRONG");
                 f.put("live", live.toString());
@@ -215,6 +226,10 @@ public final class ClusterBlackboard extends UnicastRemoteObject implements Clus
 
     /** One EVENTUAL delivery attempt; a peer that is down is retried every RETRY_MS for GIVE_UP_MS. */
     private void deliver(int peer, BlackboardRecord record, long lamport, long firstAttempt) {
+        if (!config.membership().contains(peer)) {
+            pending.decrementAndGet();   // the peer was removed from the cluster
+            return;
+        }
         Boolean ok = callPeer(peer, p -> p.replicaApply(record, lamport), PEER_TIMEOUT_MS);
         if (Boolean.TRUE.equals(ok)) {
             pending.decrementAndGet();
@@ -397,7 +412,9 @@ public final class ClusterBlackboard extends UnicastRemoteObject implements Clus
 
         long clockStart = System.currentTimeMillis();
         int[] counts = new int[2];   // rejoin attempts, polls without a known leader
-        if (clockCoordinator.isAutoSync()) {
+        // A joining node is not a member yet, so no round can include it: it reports ready
+        // after its snapshot and gets synced (below, in the background) once it has joined.
+        if (clockCoordinator.isAutoSync() && !joining) {
             long clockDeadline = clockStart + CLOCK_WAIT_MS;
             while (System.currentTimeMillis() < clockDeadline && !clockSynced()) {
                 rejoinAttempt(Math.max(1, clockDeadline - System.currentTimeMillis()), counts, clockStart);
@@ -582,10 +599,10 @@ public final class ClusterBlackboard extends UnicastRemoteObject implements Clus
     // Peers
     // =========================================================================
 
-    /** Nodes that answer a probe within PROBE_CAP_MS overall (this node always counts). */
-    private List<Integer> probeLive() {
+    /** Members that answer a probe within PROBE_CAP_MS overall (this node always counts). */
+    private List<Integer> probeLive(Membership members) {
         Map<Integer, Future<Boolean>> probes = new LinkedHashMap<>();
-        for (int peer : config.getNodeIds()) {
+        for (int peer : members.ids()) {
             if (peer != nodeId) {
                 probes.put(peer, calls.submit(() -> invoke(peer, ClusterBlackboardService::alive)));
             }

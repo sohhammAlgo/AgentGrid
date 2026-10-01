@@ -4,8 +4,6 @@ window.AgentGridPanels = window.AgentGridPanels || {};
 
 window.AgentGridPanels.exp3 = {
   render: function(container) {
-    const state = window.AgentGrid.getState();
-
     container.innerHTML = `
       <div class="panel-inner">
         <div style="margin-bottom: 16px;">
@@ -23,11 +21,7 @@ window.AgentGridPanels.exp3 = {
           <form id="exp3-drift-form" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: flex-end;">
             <div class="form-group" style="margin-bottom: 0;">
               <label class="form-label" for="exp3-drift-node">Target Node</label>
-              <select id="exp3-drift-node" class="form-control">
-                ${state.nodes.map(n => `
-                  <option value="${n.id}">Node ${n.id} (current: ${n.clockOffsetMs >= 0 ? '+' : ''}${n.clockOffsetMs} ms)</option>
-                `).join('')}
-              </select>
+              <select id="exp3-drift-node" class="form-control"></select>
             </div>
 
             <div class="form-group" style="margin-bottom: 0;">
@@ -82,6 +76,21 @@ window.AgentGridPanels.exp3 = {
     const deltaInput = document.getElementById('exp3-delta-input');
     const applyDriftBtn = document.getElementById('exp3-apply-drift-btn');
     const syncBtn = document.getElementById('exp3-sync-btn');
+    const AG = window.AgentGrid;
+    const panel = this;
+
+    // Node options follow the membership (rebuilt in place, selection kept); the label shows the
+    // offset from the control-plane clock, which Berkeley converges to the nodes' mean, not real time.
+    const nodeLabel = (id, n) => 'Node ' + id + (n && n.clockOffsetMs != null
+      ? ' (offset vs control plane: ' + (n.clockOffsetMs >= 0 ? '+' : '') + n.clockOffsetMs + ' ms)' : '');
+    AG.fillNodeSelect(driftNodeSelect, nodeLabel);
+    panel._onMembership = () => AG.fillNodeSelect(driftNodeSelect, nodeLabel);
+    if (!panel._membershipSubscribed) {
+      panel._membershipSubscribed = true;
+      AG.onMembershipChange(m => {
+        if (document.getElementById('exp3-drift-node') && panel._onMembership) panel._onMembership(m);
+      });
+    }
 
     driftForm.addEventListener('submit', async (e) => {
       e.preventDefault();

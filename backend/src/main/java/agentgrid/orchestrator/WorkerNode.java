@@ -38,13 +38,19 @@ public final class WorkerNode implements AgentService {
     private final int nodeId;
     private final NodeAgent stub;
     private final int poolSize;
+    private final int weight;
     private final AtomicInteger inFlight = new AtomicInteger();
     private volatile LoadView loadView = LoadView.RAW;
 
     public WorkerNode(int nodeId, NodeAgent stub, int poolSize) {
+        this(nodeId, stub, poolSize, poolSize);
+    }
+
+    public WorkerNode(int nodeId, NodeAgent stub, int poolSize, int weight) {
         this.nodeId = nodeId;
         this.stub = stub;
         this.poolSize = Math.max(1, poolSize);
+        this.weight = Math.max(1, weight);
     }
 
     public int getNodeId() {
@@ -53,6 +59,11 @@ public final class WorkerNode implements AgentService {
 
     public int getPoolSize() {
         return poolSize;
+    }
+
+    /** WEIGHTED routing weight: the member's configured weight (by default its pool size). */
+    public int getWeight() {
+        return weight;
     }
 
     public NodeAgent stub() {

@@ -44,6 +44,40 @@ public class ControlPlaneMain {
 
     private static final int PORT = 8080;
     private static final String HOST = "127.0.0.1";
+    /** Query of the SUMMARIZE subtasks sent by the Exp 1 / Exp 2 RMI panels. */
+    private static final String RMI_DEMO_QUERY = "leader election failure detector crashed node";
+
+    private volatile agentgrid.orchestrator.Corpus corpus;
+
+    /** The bundled document corpus (loaded on first use). */
+    private agentgrid.orchestrator.Corpus corpus() {
+        agentgrid.orchestrator.Corpus c = corpus;
+        if (c == null) {
+            synchronized (this) {
+                if (corpus == null) {
+                    corpus = agentgrid.orchestrator.Corpus.load();
+                }
+                c = corpus;
+            }
+        }
+        return c;
+    }
+
+    /** GET /api/corpus: [{id, title}] of the bundled documents (for the SUMMARIZE document picker). */
+    private void handleCorpus(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (agentgrid.orchestrator.Corpus.Doc d : corpus().docs()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", d.getId());
+            m.put("title", d.getTitle());
+            list.add(m);
+        }
+        sendJsonResponse(exchange, 200, list);
+    }
 
     private final ClusterConfig config;
     private final NodeProcessManager processManager;
@@ -51,17 +85,21 @@ public class ControlPlaneMain {
     private final ClusterMonitor monitor;
     private final JobDirectory jobDirectory;
     private final BlackboardApi blackboardApi;
+    private final MembershipManager membershipManager;
     private final HttpServer server;
     private final Path frontendDir;
 
     public ControlPlaneMain() throws Exception {
         this.config = ClusterConfig.load();
         this.processManager = new NodeProcessManager();
+        // Ports come from, and every node is launched with, the current membership.
+        this.processManager.setMembershipSource(config::membership);
         this.eventLog = new EventLog();
         this.monitor = new ClusterMonitor(config, eventLog);
         this.jobDirectory = new JobDirectory(config, monitor);
         this.blackboardApi = new BlackboardApi(config, monitor);
         this.monitor.setJobDirectory(jobDirectory);
+        this.membershipManager = new MembershipManager(config, processManager, monitor, eventLog, jobDirectory);
 
         this.frontendDir = resolveFrontendDirectory();
 
@@ -84,7 +122,8 @@ public class ControlPlaneMain {
     }
 
     public void start() throws IOException {
-        System.out.println("[ControlPlaneMain] Starting 5 cluster node processes...");
+        System.out.println("[ControlPlaneMain] Starting " + config.getNodeIds().size() + " cluster node processes ("
+                + config.membership() + ")...");
         for (int nodeId : config.getNodeIds()) {
             try {
                 Process p = processManager.start(nodeId);
@@ -119,10 +158,12 @@ public class ControlPlaneMain {
     private void setupRoutes() {
         server.createContext("/api/modules", this::handleModules);
         server.createContext("/api/cluster", this::handleCluster);
+        server.createContext("/api/cluster/nodes", this::handleClusterNodes);
         server.createContext("/api/events", this::handleEvents);
         server.createContext("/api/stream", this::handleStream);
         server.createContext("/api/nodes/", this::handleNodes);
         server.createContext("/api/rmi/invoke", this::handleRmiInvoke);
+        server.createContext("/api/corpus", this::handleCorpus);
         server.createContext("/api/clock/drift", this::handleClockDrift);
         server.createContext("/api/clock/sync", this::handleClockSync);
         server.createContext("/api/election", this::handleElection);
@@ -155,12 +196,76 @@ public class ControlPlaneMain {
         sendJsonResponse(exchange, 200, modules);
     }
 
+    /**
+     * GET /api/cluster: one status per current member (array, unchanged shape; each entry also
+     * carries its weight and the membership epoch it reports).
+     * GET /api/cluster?view=membership: {epoch, size, quorum, members, nextId, minMembers,
+     * maxMembers, changeInProgress, nodes}.
+     */
     private void handleCluster(HttpExchange exchange) throws IOException {
         if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) {
             sendMethodNotAllowed(exchange);
             return;
         }
+        if (!exchange.getRequestURI().getPath().equals("/api/cluster")
+                && !exchange.getRequestURI().getPath().equals("/api/cluster/")) {
+            sendError(exchange, 404, "Unknown cluster endpoint: " + exchange.getRequestURI().getPath());
+            return;
+        }
+        if ("membership".equals(queryParam(exchange, "view"))) {
+            sendJsonResponse(exchange, 200, membershipView());
+            return;
+        }
         sendJsonResponse(exchange, 200, monitor.getSnapshotAsMaps());
+    }
+
+    private Map<String, Object> membershipView() {
+        Map<String, Object> m = membershipManager.view();
+        m.put("nodes", monitor.getSnapshotAsMaps());
+        return m;
+    }
+
+    /** POST /api/cluster/nodes {poolSize?, weight?} adds a node; POST /api/cluster/nodes/{id}/remove removes one. */
+    private void handleClusterNodes(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        if (!validatePostHeaders(exchange)) return;
+        String path = exchange.getRequestURI().getPath();
+        String rest = path.substring("/api/cluster/nodes".length());
+        try {
+            if (rest.isEmpty() || rest.equals("/")) {
+                Map<String, Object> req = readJsonBody(exchange);
+                if (req == null) return;
+                Integer pool;
+                Integer weight;
+                try {
+                    pool = req.get("poolSize") == null ? null : ((Number) req.get("poolSize")).intValue();
+                    weight = req.get("weight") == null ? null : ((Number) req.get("weight")).intValue();
+                } catch (ClassCastException e) {
+                    sendError(exchange, 400, "Fields 'poolSize' and 'weight' must be integers");
+                    return;
+                }
+                sendJsonResponse(exchange, 200, membershipManager.add(pool, weight));
+                return;
+            }
+            String[] parts = rest.split("/");   // ["", "{id}", "remove"]
+            if (parts.length == 3 && parts[2].equals("remove")) {
+                int id;
+                try {
+                    id = Integer.parseInt(parts[1]);
+                } catch (NumberFormatException e) {
+                    sendError(exchange, 400, "Node ID must be an integer");
+                    return;
+                }
+                sendJsonResponse(exchange, 200, membershipManager.remove(id));
+                return;
+            }
+            sendError(exchange, 404, "Unknown cluster endpoint: " + path);
+        } catch (JobDirectory.ApiException e) {
+            sendError(exchange, e.getStatus(), e.getMessage());
+        }
     }
 
     private void handleEvents(HttpExchange exchange) throws IOException {
@@ -219,6 +324,7 @@ public class ControlPlaneMain {
             while (true) {
                 // Send periodic cluster and election snapshots
                 String snapJson = "event: cluster\ndata: " + JsonUtil.toJson(monitor.getSnapshotAsMaps()) + "\n\n"
+                        + "event: membership\ndata: " + JsonUtil.toJson(membershipManager.view()) + "\n\n"
                         + "event: election\ndata: " + JsonUtil.toJson(monitor.getElectionTracker().toMap()) + "\n\n";
                 synchronized (os) {
                     os.write(snapJson.getBytes(StandardCharsets.UTF_8));
@@ -269,7 +375,9 @@ public class ControlPlaneMain {
         }
 
         if (!config.getNodeIds().contains(nodeId)) {
-            sendError(exchange, 400, "Unknown node ID: " + nodeId);
+            // 404 for an id that is not a member (never existed, or removed).
+            sendError(exchange, 404, "Node " + nodeId + " is not a member of the cluster (members "
+                    + config.getNodeIds() + ")");
             return;
         }
 
@@ -373,6 +481,23 @@ public class ControlPlaneMain {
             return;
         }
 
+        // SUMMARIZE summarises one corpus document: its payload names the document (default:
+        // the first one) and a query. The other types keep the plain "query-chunk-N" input.
+        String doc = null;
+        if (subtaskType == Subtask.Type.SUMMARIZE) {
+            Object d = req.get("doc");
+            if (d != null && !(d instanceof String)) {
+                sendError(exchange, 400, "Field 'doc' must be a corpus document id string");
+                return;
+            }
+            doc = d == null || ((String) d).isBlank() ? corpus().docs().get(0).getId() : ((String) d).trim();
+            if (corpus().get(doc) == null) {
+                sendError(exchange, 400, "Unknown corpus document: " + doc + " (see GET /api/corpus)");
+                return;
+            }
+        }
+        final String summarizeDoc = doc;
+
         ClusterConfig.NodeConfig nc = config.getNode(nodeId);
         NodeAgent agent;
         TimeService timeService;
@@ -397,11 +522,14 @@ public class ControlPlaneMain {
             burstPool.submit(() -> {
                 try {
                     long sentTs = eventLog.getLamportClock().tick();
+                    String input = summarizeDoc == null ? "query-chunk-" + index
+                            : new agentgrid.orchestrator.Payload().put("query", RMI_DEMO_QUERY).put("doc", summarizeDoc)
+                                    .put("sentences", 2).encode();
                     Subtask subtask = new Subtask(
                             "job-req",
                             "subtask-" + index,
                             subtaskType,
-                            "query-chunk-" + index,
+                            input,
                             sentTs
                     );
 
@@ -837,7 +965,7 @@ public class ControlPlaneMain {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("node", status.getId());
             m.put("up", status.isUp());
-            m.put("configuredDriftMs", config.getNode(status.getId()).getClockDriftMs());
+            m.put("configuredDriftMs", config.getClockDriftMs(status.getId()));
             Long offset = null;
             if (status.isUp()) {
                 try {

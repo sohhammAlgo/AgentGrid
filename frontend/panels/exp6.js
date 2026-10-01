@@ -1,6 +1,8 @@
 // Experiment 6 Panel: the same job under each routing policy, run by the orchestrator on the
-// leader over the live 5-node cluster (pools 2/4/4/6/6). Every number shown comes from
-// /api/jobs/{id}: subtasks per node, makespan, and each node's peak queue depth.
+// leader over the live members (by default 5 nodes with pools 2/4/4/6/6; WEIGHTED uses each
+// member's weight). Every number shown comes from /api/jobs/{id}: subtasks per node, makespan,
+// and each node's peak queue depth. The per-node columns are the current members plus any
+// node a shown job used, and are rebuilt when the membership changes.
 
 window.AgentGridPanels = window.AgentGridPanels || {};
 
@@ -41,6 +43,15 @@ window.AgentGridPanels.exp6 = {
     `;
 
     const runBtn = document.getElementById('exp6-run');
+    const panel = this;
+    panel._rows = [];
+    panel._onMembership = () => { if (panel._rows.length) renderTable(panel._rows); };
+    if (!panel._membershipSubscribed) {
+      panel._membershipSubscribed = true;
+      AG.onMembershipChange(m => {
+        if (document.getElementById('exp6-root') && panel._onMembership) panel._onMembership(m);
+      });
+    }
 
     function esc(v) {
       return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -53,8 +64,9 @@ window.AgentGridPanels.exp6 = {
     }
 
     function renderTable(rows) {
-      const nodes = [...new Set(rows.flatMap(r => Object.keys(r.job.subtasksPerNode || {})
-        .concat(Object.keys(r.job.peakQueueDepth || {}))))].sort((a, b) => a - b);
+      panel._rows = rows;
+      const nodes = [...new Set(AG.memberIds().map(String).concat(rows.flatMap(r => Object.keys(r.job.subtasksPerNode || {})
+        .concat(Object.keys(r.job.peakQueueDepth || {})))))].sort((a, b) => a - b);
       const byPolicy = POLICIES.map(p => ({ p, runs: rows.filter(r => r.policy === p) })).filter(x => x.runs.length);
       document.getElementById('exp6-results').innerHTML = `
         <div class="exp4-table-wrap" style="max-height: none;">

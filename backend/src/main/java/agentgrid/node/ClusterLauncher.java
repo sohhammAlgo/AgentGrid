@@ -10,8 +10,10 @@ import java.rmi.registry.Registry;
 import java.util.List;
 
 /**
- * Launcher for the AgentGrid-Lite 5-node cluster.
- * Starts nodes 1..5 as independent OS processes via ProcessBuilder,
+ * Standalone launcher (Phase 1) for the nodes listed in cluster.properties (5 by default).
+ * It has no control plane, so it does not support adding or removing nodes; use
+ * ControlPlaneMain for elastic membership. Starts the configured nodes as independent OS
+ * processes via ProcessBuilder,
  * redirects their output to backend/build/logs/node-<id>.log, performs
  * an RMI health check across all 20 services, and registers a shutdown
  * hook to prevent orphaned child processes upon exit.

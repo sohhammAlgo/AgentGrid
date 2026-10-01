@@ -17,7 +17,7 @@ import java.util.Map;
  * The three routing policies of Exp 6, each built from the SUBMITTED LoadBalancer class
  * over WorkerNode adapters of the live nodes.
  *  - ROUND_ROBIN: RoundRobinBalancer, unchanged.
- *  - WEIGHTED: WeightedBalancer with each node's weight = its live pool size.
+ *  - WEIGHTED: WeightedBalancer with each node's weight = its member weight (by default its pool size).
  *  - LEAST_LOADED: LeastLoadedBalancer, fed capacity-normalised load by WorkerNode (fix G).
  */
 public enum BalancingPolicy {
@@ -35,7 +35,7 @@ public enum BalancingPolicy {
             case WEIGHTED: {
                 Map<String, Integer> weights = new LinkedHashMap<>();
                 for (WorkerNode w : workers) {
-                    weights.put(w.getAgentId(), w.getPoolSize());
+                    weights.put(w.getAgentId(), w.getWeight());
                 }
                 return new WeightedBalancer(asServices(workers), weights);
             }

@@ -1,6 +1,7 @@
 package agentgrid.orchestrator;
 
 import agentgrid.node.ClusterConfig;
+import agentgrid.node.Membership;
 import agentgrid.node.NodeAgent;
 import agentgrid.node.TimeoutSocketFactory;
 
@@ -25,14 +26,16 @@ public final class ClusterView {
         this.config = config;
     }
 
-    /** Live workers in ascending node id order. */
+    /** Live workers among the current members, in ascending node id order. */
     public List<WorkerNode> liveWorkers() {
         List<WorkerNode> out = new ArrayList<>();
-        for (int id : config.getNodeIds()) {
-            NodeAgent agent = reachable(id);
+        Membership members = config.membership();
+        stubs.keySet().removeIf(id -> !members.contains(id));
+        for (int id : members.ids()) {
+            NodeAgent agent = reachable(id, members.get(id).getPort());
             if (agent != null) {
                 try {
-                    out.add(new WorkerNode(id, agent, agent.getPoolSize()));
+                    out.add(new WorkerNode(id, agent, agent.getPoolSize(), members.get(id).getWeight()));
                 } catch (Exception e) {
                     stubs.remove(id);
                 }
@@ -46,7 +49,7 @@ public final class ClusterView {
         stubs.remove(nodeId);
     }
 
-    private NodeAgent reachable(int id) {
+    private NodeAgent reachable(int id, int port) {
         NodeAgent cached = stubs.get(id);
         if (cached != null) {
             try {
@@ -57,8 +60,7 @@ public final class ClusterView {
             }
         }
         try {
-            Registry registry = LocateRegistry.getRegistry("localhost", config.getNode(id).getPort(),
-                    TimeoutSocketFactory.INSTANCE);
+            Registry registry = LocateRegistry.getRegistry("localhost", port, TimeoutSocketFactory.INSTANCE);
             NodeAgent fresh = (NodeAgent) registry.lookup("agent");
             fresh.ping();
             stubs.put(id, fresh);

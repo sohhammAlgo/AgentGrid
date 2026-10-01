@@ -4,8 +4,6 @@ window.AgentGridPanels = window.AgentGridPanels || {};
 
 window.AgentGridPanels.exp2 = {
   render: function(container) {
-    const state = window.AgentGrid.getState();
-
     container.innerHTML = `
       <div class="panel-inner">
         <div style="margin-bottom: 16px;">
@@ -16,14 +14,10 @@ window.AgentGridPanels.exp2 = {
         </div>
 
         <form id="exp2-form">
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px;">
             <div class="form-group">
               <label class="form-label" for="exp2-node-select">Target Node</label>
-              <select id="exp2-node-select" class="form-control">
-                ${state.nodes.map(n => `
-                  <option value="${n.id}">Node ${n.id} (pool: ${n.poolSize})${!n.up ? ' [OFFLINE]' : ''}</option>
-                `).join('')}
-              </select>
+              <select id="exp2-node-select" class="form-control"></select>
             </div>
 
             <div class="form-group">
@@ -39,6 +33,11 @@ window.AgentGridPanels.exp2 = {
                 <option value="RANK">RANK</option>
                 <option value="SYNTHESIZE">SYNTHESIZE</option>
               </select>
+            </div>
+
+            <div class="form-group" id="exp2-doc-group">
+              <label class="form-label" for="exp2-doc-select">Document (SUMMARIZE)</label>
+              <select id="exp2-doc-select" class="form-control"></select>
             </div>
           </div>
 
@@ -99,6 +98,31 @@ window.AgentGridPanels.exp2 = {
     const countInput = document.getElementById('exp2-count-input');
     const typeSelect = document.getElementById('exp2-type-select');
     const burstBtn = document.getElementById('exp2-burst-btn');
+    const docSelect = document.getElementById('exp2-doc-select');
+    const docGroup = document.getElementById('exp2-doc-group');
+    const AG = window.AgentGrid;
+    const panel = this;
+
+    // Node options come from the membership; rebuilt in place when it changes (selection kept).
+    const nodeLabel = (id, n) => 'Node ' + id + (n ? ' (pool: ' + n.poolSize + ')' + (n.up ? '' : ' [OFFLINE]') : '');
+    AG.fillNodeSelect(nodeSelect, nodeLabel);
+    panel._onMembership = () => AG.fillNodeSelect(nodeSelect, nodeLabel);
+    if (!panel._membershipSubscribed) {
+      panel._membershipSubscribed = true;
+      AG.onMembershipChange(m => {
+        if (document.getElementById('exp2-node-select') && panel._onMembership) panel._onMembership(m);
+      });
+    }
+
+    // SUMMARIZE summarises one corpus document: pick it here (default: the first one).
+    AG.getCorpus().then(docs => {
+      docSelect.replaceChildren(...docs.map(d => AG.h('option', { value: d.id }, d.id + ' — ' + d.title)));
+    }).catch(err => {
+      docSelect.replaceChildren(AG.h('option', { value: '' }, 'corpus unavailable: ' + err.message));
+    });
+    const syncDocVisibility = () => { docGroup.style.visibility = typeSelect.value === 'SUMMARIZE' ? 'visible' : 'hidden'; };
+    typeSelect.addEventListener('change', syncDocVisibility);
+    syncDocVisibility();
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -119,7 +143,7 @@ window.AgentGridPanels.exp2 = {
       window.AgentGrid.onClusterUpdate(peakTracker);
 
       try {
-        const resp = await window.AgentGrid.invokeRmi(nodeId, type, count);
+        const resp = await window.AgentGrid.invokeRmi(nodeId, type, count, type === 'SUMMARIZE' ? docSelect.value : null);
         const node = window.AgentGrid.getState().nodes.find(n => n.id === nodeId);
         const poolSize = node ? node.poolSize : '?';
 

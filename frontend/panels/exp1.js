@@ -4,8 +4,6 @@ window.AgentGridPanels = window.AgentGridPanels || {};
 
 window.AgentGridPanels.exp1 = {
   render: function(container) {
-    const state = window.AgentGrid.getState();
-
     container.innerHTML = `
       <div class="panel-inner">
         <div style="margin-bottom: 16px;">
@@ -16,14 +14,10 @@ window.AgentGridPanels.exp1 = {
         </div>
 
         <form id="exp1-form">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;">
             <div class="form-group">
               <label class="form-label" for="exp1-node-select">Target Node</label>
-              <select id="exp1-node-select" class="form-control">
-                ${state.nodes.map(n => `
-                  <option value="${n.id}">Node ${n.id} (port :${n.port})${!n.up ? ' [OFFLINE]' : ''}</option>
-                `).join('')}
-              </select>
+              <select id="exp1-node-select" class="form-control"></select>
             </div>
 
             <div class="form-group">
@@ -34,6 +28,11 @@ window.AgentGridPanels.exp1 = {
                 <option value="RANK">RANK (Relevance score)</option>
                 <option value="SYNTHESIZE">SYNTHESIZE (Synthesize findings)</option>
               </select>
+            </div>
+
+            <div class="form-group" id="exp1-doc-group">
+              <label class="form-label" for="exp1-doc-select">Document (SUMMARIZE)</label>
+              <select id="exp1-doc-select" class="form-control"></select>
             </div>
           </div>
 
@@ -89,31 +88,66 @@ window.AgentGridPanels.exp1 = {
     const nodeSelect = document.getElementById('exp1-node-select');
     const typeSelect = document.getElementById('exp1-type-select');
     const invokeBtn = document.getElementById('exp1-invoke-btn');
+    const docSelect = document.getElementById('exp1-doc-select');
+    const docGroup = document.getElementById('exp1-doc-group');
+    const AG = window.AgentGrid;
+    const panel = this;
+
+    // Node options come from the membership; they are rebuilt in place when it changes.
+    const nodeLabel = (id, n) => 'Node ' + id + (n ? ' (port :' + n.port + ')' + (n.up ? '' : ' [OFFLINE]') : '');
+    AG.fillNodeSelect(nodeSelect, nodeLabel);
+
+    // SUMMARIZE summarises one corpus document: pick it here (default: the first one).
+    AG.getCorpus().then(docs => {
+      docSelect.replaceChildren(...docs.map(d => AG.h('option', { value: d.id }, d.id + ' — ' + d.title)));
+    }).catch(err => {
+      docSelect.replaceChildren(AG.h('option', { value: '' }, 'corpus unavailable: ' + err.message));
+    });
+    const syncDocVisibility = () => { docGroup.style.visibility = typeSelect.value === 'SUMMARIZE' ? 'visible' : 'hidden'; };
+    typeSelect.addEventListener('change', syncDocVisibility);
+    syncDocVisibility();
+
+    panel._onMembership = () => {
+      AG.fillNodeSelect(nodeSelect, nodeLabel);
+      updateBindingsView();
+    };
+    if (!panel._membershipSubscribed) {
+      panel._membershipSubscribed = true;
+      AG.onMembershipChange(m => {
+        if (document.getElementById('exp1-node-select') && panel._onMembership) panel._onMembership(m);
+      });
+    }
 
     function updateBindingsView() {
       const selectedId = parseInt(nodeSelect.value, 10);
       const node = window.AgentGrid.getState().nodes.find(n => n.id === selectedId);
       const container = document.getElementById('exp1-bindings-container');
+      if (!container) return;
+      // Binding names come from the node's registry: rendered as text.
       if (!node || !node.bindings || node.bindings.length === 0) {
-        container.innerHTML = `<span style="font-size: 12px; color: var(--text-dim);">No active bindings (Node may be offline)</span>`;
+        container.replaceChildren(AG.h('span', { style: { fontSize: '12px', color: 'var(--text-dim)' } },
+          'No active bindings (Node may be offline)'));
       } else {
-        container.innerHTML = node.bindings.map(b => `
-          <span class="badge" style="font-family: var(--font-mono); background: rgba(99, 102, 241, 0.15); color: #818cf8; border-color: rgba(99, 102, 241, 0.3);">
-            "${b}"
-          </span>
-        `).join('');
+        container.replaceChildren(...node.bindings.map(b => AG.h('span', { className: 'badge', style: {
+          fontFamily: 'var(--font-mono)', background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8',
+          borderColor: 'rgba(99, 102, 241, 0.3)' } }, '"' + b + '"')));
       }
     }
 
     nodeSelect.addEventListener('change', updateBindingsView);
     updateBindingsView();
 
-    // Listen for cluster updates to keep bindings fresh
-    window.AgentGrid.onClusterUpdate(() => {
-      if (document.getElementById('exp1-node-select')) {
-        updateBindingsView();
-      }
-    });
+    // Cluster updates keep the bindings and the [OFFLINE] labels fresh (subscribed once).
+    panel._onCluster = () => {
+      AG.fillNodeSelect(nodeSelect, nodeLabel);
+      updateBindingsView();
+    };
+    if (!panel._clusterSubscribed) {
+      panel._clusterSubscribed = true;
+      AG.onClusterUpdate(() => {
+        if (document.getElementById('exp1-node-select') && panel._onCluster) panel._onCluster();
+      });
+    }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -124,7 +158,7 @@ window.AgentGridPanels.exp1 = {
       invokeBtn.innerHTML = `<span>Invoking...</span>`;
 
       try {
-        const resp = await window.AgentGrid.invokeRmi(nodeId, type, 1);
+        const resp = await window.AgentGrid.invokeRmi(nodeId, type, 1, type === 'SUMMARIZE' ? docSelect.value : null);
         const call = resp.calls && resp.calls[0];
         if (call) {
           document.getElementById('exp1-res-agent').textContent = call.agentId;

@@ -57,9 +57,25 @@ public class NodeMain {
         if (System.getProperty("sun.rmi.transport.tcp.responseTimeout") == null) {
             System.setProperty("sun.rmi.transport.tcp.responseTimeout", RMI_RESPONSE_TIMEOUT_MS);
         }
+        // Every node runs on this machine and every lookup uses "localhost", so remote stubs
+        // advertise the loopback address. By default RMI puts the machine's LAN IP into each
+        // stub; when the Wi-Fi address changed while a cluster was running, every stub pointed
+        // at an address the machine no longer had and all node-to-node calls timed out.
+        if (System.getProperty("java.rmi.server.hostname") == null) {
+            System.setProperty("java.rmi.server.hostname", "127.0.0.1");
+        }
 
         try {
             ClusterConfig config = ClusterConfig.load();
+            // The control plane passes the current membership (and, for a node being added, a
+            // joining view: current members plus this node at the current epoch). Without it
+            // (e.g. ClusterLauncher) the node uses cluster.properties.
+            String launchMembership = System.getProperty("agentgrid.membership");
+            if (launchMembership != null && !launchMembership.isBlank()) {
+                config.setLaunchMembership(Membership.decode(launchMembership));
+            }
+            boolean joining = Boolean.getBoolean("agentgrid.membership.joining");
+            long launchEpoch = config.membership().getEpoch();
             ClusterConfig.NodeConfig nodeConfig = config.getNode(nodeId);
 
             int port = nodeConfig.getPort();
@@ -105,8 +121,24 @@ public class NodeMain {
                     election::leader);
             registry.rebind("blackboard-node-node-" + nodeId, blackboard);
             agentService.setBlackboard(blackboard);
+            blackboard.setJoining(joining);
 
             failureDetector = new FailureDetector(electionNode);
+            if (joining) {
+                failureDetector.holdBootGate();
+            }
+            // A new membership epoch: election peers (Bully order, ring order) follow it; a
+            // joining node starts its first election once it is a member of a newer epoch.
+            ElectionNode electionRef = electionNode;
+            FailureDetector detectorRef = failureDetector;
+            config.addMembershipListener(m -> {
+                System.out.println("[Node " + nodeId + "] membership applied: " + m);
+                electionRef.updatePeers(ClusterConfig.portMap(m));
+                if (m.contains(nodeId) && m.getEpoch() > launchEpoch) {
+                    detectorRef.releaseBootGate("member of epoch " + m.getEpoch());
+                }
+            });
+            agentService.setClusterConfig(config);
             agentService.setSyncListener(failureDetector::onSync);
             failureDetector.start();
             blackboard.start();
@@ -133,7 +165,8 @@ public class NodeMain {
             System.out.println("[Node " + nodeId + "] Started successfully on port " + port
                     + " (pool=" + poolSize
                     + ", drift=" + (driftMs >= 0 ? "+" : "") + driftMs + "ms"
-                    + ", election=" + algorithm + ")");
+                    + ", election=" + algorithm + ", membership " + config.membership()
+                    + (joining ? ", JOINING" : "") + ")");
             System.out.println("[Node " + nodeId + "] Registered services: 'agent', 'time', 'election-node-"
                     + nodeId + "', 'blackboard-node-node-" + nodeId + "', 'telemetry', 'orchestrator', 'clock'");
 

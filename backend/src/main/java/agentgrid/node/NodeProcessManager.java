@@ -23,6 +23,12 @@ public class NodeProcessManager {
     private volatile String electionAlgorithm = "BULLY";
 
     private volatile boolean clockAutoSync = true;
+    /** The control plane's current membership: ports come from it and every node is launched with it. */
+    private volatile java.util.function.Supplier<Membership> membership;
+
+    public void setMembershipSource(java.util.function.Supplier<Membership> membership) {
+        this.membership = membership;
+    }
 
     /** Election algorithm passed to nodes started from now on. */
     public void setElectionAlgorithm(String algorithm) {
@@ -34,7 +40,45 @@ public class NodeProcessManager {
         this.clockAutoSync = enabled;
     }
 
+    /** Starts (or restarts) a current member with the current membership. */
     public synchronized Process start(int nodeId) throws IOException {
+        java.util.function.Supplier<Membership> source = membership;
+        if (source == null) {
+            return launch(nodeId, ClusterConfig.load().getNode(nodeId).getPort(), null, false);
+        }
+        Membership m = source.get();
+        MemberSpec spec = m.get(nodeId);
+        if (spec == null) {
+            throw new IOException("node " + nodeId + " is not a member of " + m);
+        }
+        return launch(nodeId, spec.getPort(), m, false);
+    }
+
+    /**
+     * Starts a node that is being added: it gets the joining view (current members plus
+     * itself at the current epoch) and waits for the next epoch before its first election.
+     */
+    public synchronized Process startJoining(MemberSpec spec, Membership joiningView) throws IOException {
+        return launch(spec.getId(), spec.getPort(), joiningView, true);
+    }
+
+    /** Stops a node's process and stops tracking it (a removed member, or a failed add). */
+    public synchronized boolean forget(int nodeId) {
+        boolean killed = kill(nodeId);
+        processes.remove(nodeId);
+        return killed;
+    }
+
+    /** Pids of the node processes this manager started and still tracks, by node id. */
+    public Map<Integer, Long> pids() {
+        Map<Integer, Long> out = new java.util.TreeMap<>();
+        processes.forEach((id, p) -> {
+            if (p.isAlive()) out.put(id, p.pid());
+        });
+        return out;
+    }
+
+    private Process launch(int nodeId, int port, Membership launchMembership, boolean joining) throws IOException {
         // Kill existing process if currently tracked and alive, and wait until it has exited
         Process existing = processes.get(nodeId);
         if (existing != null && existing.isAlive()) {
@@ -45,7 +89,6 @@ public class NodeProcessManager {
         // A killed JVM can take a moment to release its registry port, above all when several
         // nodes are restarted at once. A JVM started before that fails to bind and exits, so
         // wait for the port and refuse to start one that is doomed.
-        int port = ClusterConfig.load().getNode(nodeId).getPort();
         long t0 = System.currentTimeMillis();
         while (!portFree(port)) {
             if (System.currentTimeMillis() - t0 >= PORT_WAIT_MS) {
@@ -67,7 +110,7 @@ public class NodeProcessManager {
         Files.createDirectories(logsDir);
 
         Path logFile = logsDir.resolve("node-" + nodeId + ".log");
-        ProcessBuilder pb = new ProcessBuilder(
+        List<String> cmd = new java.util.ArrayList<>(List.of(
                 javaBin.toString(),
                 // A node needs a few MB of heap. Without a cap each JVM commits the default
                 // initial heap (1/64 of RAM, ~250 MB here); five of them plus the control plane
@@ -77,14 +120,21 @@ public class NodeProcessManager {
                 "-cp",
                 classpath,
                 "-Dagentgrid.election.algorithm=" + electionAlgorithm,
-                "-Dagentgrid.clock.auto=" + clockAutoSync,
-                "agentgrid.node.NodeMain",
-                String.valueOf(nodeId)
-        );
+                "-Dagentgrid.clock.auto=" + clockAutoSync));
+        if (launchMembership != null) {
+            cmd.add("-Dagentgrid.membership=" + launchMembership.encode());
+        }
+        if (joining) {
+            cmd.add("-Dagentgrid.membership.joining=true");
+        }
+        cmd.add("agentgrid.node.NodeMain");
+        cmd.add(String.valueOf(nodeId));
+        ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.redirectErrorStream(true);
         // Append, so the log of a killed or restarted node is kept (one header per start).
         Files.writeString(logFile, System.lineSeparator() + "===== " + java.time.LocalDateTime.now() + " starting node "
-                + nodeId + " (clock.auto=" + clockAutoSync + ") =====" + System.lineSeparator(),
+                + nodeId + " (clock.auto=" + clockAutoSync + (launchMembership == null ? "" : ", membership " + launchMembership)
+                + (joining ? ", joining" : "") + ") =====" + System.lineSeparator(),
                 java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
         pb.redirectOutput(ProcessBuilder.Redirect.appendTo(logFile.toFile()));
 

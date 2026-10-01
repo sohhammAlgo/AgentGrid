@@ -3,6 +3,14 @@
 A distributed agent grid built on Java RMI. A client dispatches `Subtask`s to a
 remote agent node, which executes them and returns `Result`s.
 
+
+## Commands to run the Control Plane
+cd ./backend
+.\build.ps1
+java -cp build/classes agentgrid.control.ControlPlaneMain
+
+
++
 ## Layout
 
 ```
@@ -264,8 +272,8 @@ binds these services in its own RMI registry:
 
 ### Configuration
 [`backend/cluster.properties`](backend/cluster.properties):
-- 5 nodes (IDs 1–5) on ports 1601–1605 (avoiding the standalone demo ports 1099, 1100–1102, 1201–1203, 1301–1305, 1401–1403).
-- Worker pool sizes 2, 4, 4, 6, 6 (heterogeneous hardware).
+- The initial membership (epoch 1): 5 nodes (IDs 1–5) on ports 1601–1605 (avoiding the standalone demo ports 1099, 1100–1102, 1201–1203, 1301–1305, 1401–1403). Nodes can be added (up to 9) and removed (down to 3) at runtime; an added node gets the next id and port 1600 + id (see Elastic membership).
+- Worker pool sizes 2, 4, 4, 6, 6 (heterogeneous hardware). The WEIGHTED routing weight of a node is `node.<id>.weight`, by default its pool size.
 - Clock drift offsets +3000, -2000, +500, 0, +1500 ms.
 - `simulatedWorkMs=150`: delay each node adds to every subtask. The real stage work is
   sub-millisecond, so without it the thread-pool and load-balancing effects would not show.
@@ -304,13 +312,16 @@ It starts nodes 1–5 as child JVM processes (each with `-Xms16m -Xmx256m`), pol
 RMI, pulls their events, and serves the API and the dashboard. `Ctrl-C` stops the nodes too
 (a shutdown hook). A control plane that is force-killed (Task Manager "End task",
 `taskkill /F`, `Stop-Process -Force`) cannot run that hook, so its nodes keep running and hold
-ports 1601–1605; stop them with `backend\stop-cluster.ps1`, which stops only `NodeMain` and
-`ControlPlaneMain` java processes. Node output goes to `backend/build/logs/node-<id>.log`.
+their ports (1601–1605, and 1600 + id for nodes added at runtime); stop them with
+`backend\stop-cluster.ps1`, which stops only `NodeMain` and `ControlPlaneMain` java processes
+(added nodes included) and checks ports 8080 and 1601–1699. The shutdown hook stops every node
+process the control plane started, added ones included. Node output is appended to
+`backend/build/logs/node-<id>.log` (one header per start).
 
 Dashboard: **http://127.0.0.1:8080/** (the server binds to 127.0.0.1 only).
 
-The older `agentgrid.node.ClusterLauncher` still starts the 5 nodes without a control plane
-and prints an RMI health table.
+The older `agentgrid.node.ClusterLauncher` still starts the nodes of `cluster.properties`
+without a control plane and prints an RMI health table; it cannot add or remove nodes.
 
 ### HTTP API
 
@@ -321,12 +332,16 @@ malformed or invalid input returns 400. Errors are `{"error": "...", "status": N
 | Method | Path | Body | Returns |
 |---|---|---|---|
 | GET | `/api/modules` | | Dashboard modules: exp1–exp6 |
-| GET | `/api/cluster` | | Per node: `id, port, up, poolSize, queueDepth, lamport, clockOffsetMs, bindings, leaderView, isLeader` |
-| GET | `/api/events?since=<seq>` | | Merged event log (control-plane and node events) after `seq`: `seq, type, node, details, lamport, nodeWallMs, trueMs`, plus `nodeSeq` and `fields` for node events |
-| GET | `/api/stream` | | Server-sent events: `cluster` and `election` snapshots every 1 s (0.2 s during elections and jobs), and every new `event` |
-| POST | `/api/nodes/{id}/kill` | `{}` | Kills the node process |
-| POST | `/api/nodes/{id}/restart` | `{}` | Restarts the node process |
-| POST | `/api/rmi/invoke` | `{"node": 1, "type": "SUMMARIZE", "count": 12}` | Runs `count` concurrent `execute()` calls on one node (Exp 1, 2) |
+| GET | `/api/cluster` | | Per current member: `id, port, up, poolSize, weight, epoch` (the membership epoch it reports), `queueDepth, lamport, clockOffsetMs, bindings, leaderView, isLeader` |
+| GET | `/api/cluster?view=membership` | | `{epoch, size, quorum, members: [{id, port, poolSize, weight}], nextId, minMembers, maxMembers, changeInProgress, processes, nodes}` (`nodes` = the array above) |
+| POST | `/api/cluster/nodes` | `{"poolSize": 4, "weight": 4}` (both optional) | Adds a node (see Elastic membership): `{node, port, poolSize, weight, readyMs, snapshotSource, membership, pushed, clockRound, totalMs}`; 409 at 9 members or during another change; 500 with the reason if the node could not be started, came up or pulled its snapshot (membership unchanged) |
+| POST | `/api/cluster/nodes/{id}/remove` | `{}` | Removes a member: `{node, wasLive, wasLeader, membership, pushed}`; 404 for a non-member; 409 below 3 members, while a job runs, if a live node's removal would leave fewer live members than the new quorum, or during another change |
+| GET | `/api/events?since=<seq>` | | Merged event log (control-plane and node events) after `seq`: `seq, type, node, details, lamport, nodeWallMs, trueMs`, plus `nodeSeq` and `fields` for node events (and `fields` for `MEMBERSHIP_CHANGED`, `NODE_ADDED`, `NODE_REMOVED`, `NODE_ADD_FAILED`) |
+| GET | `/api/stream` | | Server-sent events: `cluster`, `membership` and `election` snapshots every 1 s (0.2 s during elections and jobs), and every new `event` |
+| POST | `/api/nodes/{id}/kill` | `{}` | Kills the node process; 404 for a non-member (e.g. a removed id) |
+| POST | `/api/nodes/{id}/restart` | `{}` | Restarts the node process with the current membership; 404 for a non-member |
+| POST | `/api/rmi/invoke` | `{"node": 1, "type": "SUMMARIZE", "count": 12, "doc": "doc-07"}` | Runs `count` concurrent `execute()` calls on one node (Exp 1, 2). SUMMARIZE summarises corpus document `doc` (default: the first one; 400 for an unknown id) |
+| GET | `/api/corpus` | | `[{id, title}]` of the bundled documents |
 | POST | `/api/clock/drift` | `{"node": 1, "deltaMs": 5000}` | Shifts a node's clock (Exp 3) |
 | GET | `/api/clock/drift` | | Per node: `node, up, configuredDriftMs, offsetMs` (current offset against the control plane's clock, RTT-compensated) |
 | POST | `/api/clock/sync` | `{}` | Asks the elected leader to run one Berkeley round now: `spreadBefore, spreadAfter, averageOffset, nodeCount, corrections, coordinator, skipped`; **409** while no leader is agreed |
@@ -361,12 +376,13 @@ or not stored; a refused or failed write never fails the job. The leader records
 Every node keeps a replica of `{key, value, timestamp, writerNodeId, version}` records. The
 dashboard tab "Blackboard" shows every replica side by side.
 
-- **STRONG** is synchronous replication to every *live* replica, gated by a live majority of the
-  configured cluster (3 of 5). The node that takes the write probes which nodes are live
-  (in parallel, 500 ms cap); with fewer than 3 it refuses and writes nothing anywhere.
-  Otherwise it writes to every live node and returns after they acknowledge. Dead nodes catch
+- **STRONG** is synchronous replication to every *live* replica, gated by a live quorum of
+  floor(n/2)+1 of the n members in the writing node's current membership epoch (3 of 5 by
+  default, 4 of 6, 5 of 9). The node that takes the write probes which members are live
+  (in parallel, 500 ms cap); with fewer than the quorum it refuses and writes nothing anywhere.
+  Otherwise it writes to every live member and returns after they acknowledge. Dead nodes catch
   up when they restart. A node can die between the live check and the write, so the result
-  can also be `STORED_DEGRADED` (at least 3 acknowledged) or `FAILED_PARTIAL` (fewer).
+  can also be `STORED_DEGRADED` (at least a quorum acknowledged) or `FAILED_PARTIAL` (fewer).
   **This is not consensus and not linearizable**: two concurrent writers of the same key are
   ordered only by last-writer-wins.
 - **EVENTUAL** acknowledges after the local write and pushes to peers after the simulated
@@ -390,33 +406,78 @@ dashboard tab "Blackboard" shows every replica side by side.
   100 ms of the others within 5 s of ready.
 
 #### Cost of STRONG vs EVENTUAL (BlackboardVerifier B10)
-These numbers come from two consecutive BlackboardVerifier runs. Each run had 3 STRONG and 3
-EVENTUAL jobs, interleaved (WEIGHTED policy, 42 subtasks, 20 findings and 1 answer each).
-JobFlakeCheck adds a second sample of 15 jobs per mode.
+These numbers come from one BlackboardVerifier run and one JobFlakeCheck run, each against a
+fresh control plane, on the build with elastic membership (5 members, loopback RMI stubs). B10
+runs 3 STRONG and 3 EVENTUAL jobs, interleaved (WEIGHTED policy, 42 subtasks, 20 findings and
+1 answer each); JobFlakeCheck adds a second sample of 15 jobs per mode.
 
 | | STRONG min / median / max | EVENTUAL min / median / max |
 |---|---|---|
-| Direct write via the API (B1/B2, 20 writes per run) | 1 / 2–3 / 22 ms | 0 / 0 / 1 ms |
-| Finding write inside a job (per-job median, 6 jobs) | 13 / 32 / 383 ms | 0 / 0 / 0 ms |
-| Job makespan, B10 (6 jobs) | 780 / 868 / 1499 ms | 738 / 801 / 981 ms |
-| Job makespan, JobFlakeCheck (15 jobs) | 743 / 826 / 2060 ms | 720 / 753 / 1010 ms |
+| Direct write via the API (B1/B2, 20 writes each) | 2 / 4 / 151 ms | 0 / 0 / 8 ms |
+| Finding write inside a job (per-job median, 3 jobs each) | 13 / 31 / 80 ms | 0 / 0 / 0 ms |
+| Job makespan, B10 (3 jobs each) | 840 / 1151 / 1179 ms | 702 / 787 / 1019 ms |
+| Job makespan, JobFlakeCheck (15 jobs each) | 648 / 685 / 2232 ms | 643 / 658 / 798 ms |
 
 - **What the numbers show:**
   - A STRONG write waits for every live replica, while an EVENTUAL write returns after the local write.
   - Inside a job, a STRONG finding write competes with the job's own RMI traffic, so it costs more than a direct write.
-  - EVENTUAL's price is staleness instead: in B2, 79–80 of 100 immediate reads were stale, and replicas agreed after a median of 453–460 ms.
-  - The makespan ranges overlap: STRONG costs roughly 0–100 ms per job at the median, less than the run-to-run spread.
+  - EVENTUAL's price is staleness instead: in B2, 80 of 100 immediate reads were stale, and replicas agreed after 433 / 457 / 556 ms (min / median / max).
+  - The makespan ranges overlap: in the larger JobFlakeCheck sample STRONG costs about 27 ms per job at the median, far less than the run-to-run spread.
 - **Caveats:**
   - Measured on one Windows machine running all 5 nodes and the control plane, with simulated work (150 ms per subtask) and a simulated 400 ms EVENTUAL lag (`eventualLagMs`).
-  - Machine load causes visible run-to-run variance: the first job of a series is often the slowest (1499 / 1399 ms in B10, 2060 ms in JobFlakeCheck).
+  - Machine load causes visible run-to-run variance: the first job of a series is often the slowest (1151 ms in B10, 2232 ms in JobFlakeCheck), and one direct STRONG write took 151 ms against a median of 4 ms.
   - Treat these as orders of magnitude, not benchmarks.
+
+### Elastic membership (add / remove nodes)
+The cluster's membership is an immutable `{epoch, members}` object (`node/Membership`,
+`node/MemberSpec {id, port = 1600 + id, poolSize, weight}`). The control plane
+(`control/MembershipManager`) is the only authority: it creates every new epoch and pushes it
+to the nodes, which apply a membership only if its epoch is higher (`NodeAgent.applyMembership`).
+Everything that used to assume nodes 1–5 reads the current membership: the monitor and
+`/api/cluster`, Bully's higher/lower ids and the ring order (ascending ids), the failure
+detector's leader, the blackboard's replica set and STRONG quorum, the Berkeley round, the
+orchestrator's workers and the WEIGHTED weights, the election tracker, and the dashboard.
+
+- **Add** (`POST /api/cluster/nodes {"poolSize": 4, "weight": 4}`, both optional, defaults 4 / 4):
+  1. allocate the next id (ids are never reused, not even after a failed add); 409 if the cluster already has 9 members;
+  2. start the process with a *joining* view (current members plus itself, current epoch) and wait until it is UP;
+  3. wait until its blackboard replica is ready (snapshot pulled from the live peers);
+  4. only then bump the epoch and push it to every live member; the new node's first election
+     waits for this (its boot gate is held), and as the highest id it becomes the Bully leader;
+  5. ask the agreed leader for a Berkeley round over the new membership.
+  Any failure before step 4 (port busy, no UP within 20 s, snapshot failed) stops the new
+  process, leaves the membership unchanged, records `NODE_ADD_FAILED` and returns 500 with the reason.
+- **Remove** (`POST /api/cluster/nodes/{id}/remove`): 404 for a non-member; 409 if fewer than 3
+  members would remain, while a job is QUEUED or RUNNING, or if removing a *live* node would
+  leave fewer live members than the quorum of the new membership (removing a dead node is not
+  limited by this rule). The new epoch is pushed to the remaining members first, then the process
+  is stopped and dropped from the monitor. If it was the leader, the members' failure detectors
+  elect a new one as for any dead leader.
+- Membership changes are serialised: one at a time, a concurrent request gets 409.
+- Events: `NODE_ADDED`, `NODE_REMOVED`, `NODE_ADD_FAILED`, and `MEMBERSHIP_CHANGED` with fields
+  `{epoch, members, quorum}`.
+- `GET /api/cluster?view=membership` and the `membership` SSE event give the epoch, quorum,
+  member specs, next id, limits and the tracked node processes; `/api/cluster` entries carry each
+  node's `weight` and the `epoch` it reports. Kill and Restart are unchanged; on a removed id they return 404.
+- A restarted node is launched with the current membership, and the monitor re-pushes the
+  membership to any node that reports an older epoch.
+
+**Limitations:**
+- Membership is not persisted: a control-plane restart starts again from `cluster.properties` (5 nodes).
+- No epoch fencing on replication: a replica applies a record whatever epoch the writer held.
+  A STRONG write checks the quorum of the writer's current epoch only; anti-entropy covers gaps.
+- Nodes added at runtime have no configured clock drift (`configuredDriftMs` 0).
+- `ClusterLauncher` (the standalone Phase 1 launcher) has no control plane and cannot add or remove nodes.
+- Node RMI stubs advertise `127.0.0.1` (`java.rmi.server.hostname`): all nodes run on this machine.
+  With the default (the LAN IP), a Wi-Fi address change during a run broke every node-to-node call (FIXES.md, Fix W).
 
 ### Verifiers
 With the control plane running, from `backend/`:
 ```bash
 java -cp build/classes agentgrid.control.ElectionVerifier   # Exp 4: election (V1-V6)
 java -cp build/classes agentgrid.control.JobVerifier        # Phase 4: jobs and routing (J1-J5)
-java -cp build/classes agentgrid.control.BlackboardVerifier # Phase 5: replicated blackboard (B1-B11)
+java -cp build/classes agentgrid.control.BlackboardVerifier # Phase 5: replicated blackboard (B1-B12)
+java -cp build/classes agentgrid.control.MembershipVerifier # elastic membership: add / remove nodes (M1-M13)
 java -cp build/classes agentgrid.control.RestartStress      # restart all 5 nodes at once, 10 cycles
 java -cp build/classes agentgrid.control.JobFlakeCheck      # 30 jobs, no false ORPHANED
 java -cp build/classes agentgrid.control.JobFlakeCheck orphan 5  # kill the leader mid-job: time to JOB_ORPHANED
@@ -427,11 +488,15 @@ check answer sentences, and BlackboardVerifier checks the merge function in-proc
 every measured number, end with a PASS/FAIL table, and exit non-zero if a check fails.
 ElectionVerifier and BlackboardVerifier kill and restart nodes and take several minutes.
 ElectionVerifier leaves the election algorithm set to RING when it finishes.
+The verifiers other than MembershipVerifier expect the default 5 members (ids 1-5); run them
+against a fresh control plane. MembershipVerifier also needs a fresh one, and leaves a 5-member
+cluster whose ids are not 1-5 (it removes nodes 4 and 5 to test the minimum-size rule, and ids
+are never reused).
 
 **Not yet tested:**
 - The shutdown hook when the control plane's console window is closed. Ctrl+C stops all 5 nodes; a forced kill of the control plane leaves them running (stop them with `stop-cluster.ps1`).
 - Linux, and `build.sh` / `build.bat`. Everything here was built with `build.ps1` and run on Windows.
-- The dashboard has not been opened in a browser.
+- The dashboard has not been opened in a browser (including the Add node / Remove controls and the membership-driven dropdowns).
 
 `agentgrid.node.ElectionBaselineProbe`, `agentgrid.orchestrator.BalancerBaselineProbe` and
 `agentgrid.node.BlackboardBaselineProbe` produce the "before" numbers in [FIXES.md](FIXES.md).

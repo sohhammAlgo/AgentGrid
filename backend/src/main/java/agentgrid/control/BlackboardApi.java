@@ -166,7 +166,10 @@ public class BlackboardApi {
         }
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("prefix", prefix);
-        out.put("majority", config.majority());
+        agentgrid.node.Membership members = config.membership();
+        out.put("majority", members.quorum());
+        out.put("members", members.size());
+        out.put("epoch", members.getEpoch());
         out.put("eventualLagMs", config.getEventualLagMs());
         out.put("eventualLagSimulated", true);
         out.put("autoSync", monitor.getDesiredAutoSync());

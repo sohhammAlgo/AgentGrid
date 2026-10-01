@@ -52,6 +52,9 @@ public class ClusterMonitor {
         private final Integer leaderView;
         private final Boolean electing;
         private final String algorithm;
+        /** Membership epoch the node reports (null while down). */
+        private Long epoch;
+        private int weight;
 
         public NodeStatus(
                 int id,
@@ -101,6 +104,14 @@ public class ClusterMonitor {
         public Integer getLeaderView() { return leaderView; }
         public Boolean getElecting() { return electing; }
         public String getAlgorithm() { return algorithm; }
+        public Long getEpoch() { return epoch; }
+        public int getWeight() { return weight; }
+
+        NodeStatus withMembership(Long epoch, int weight) {
+            this.epoch = epoch;
+            this.weight = weight;
+            return this;
+        }
 
         public Map<String, Object> toMap() {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -108,6 +119,8 @@ public class ClusterMonitor {
             m.put("port", port);
             m.put("up", up);
             m.put("poolSize", poolSize);
+            m.put("weight", weight);
+            m.put("epoch", up ? epoch : null);
             m.put("queueDepth", queueDepth);
             m.put("lamport", lamport);
             m.put("clockOffsetMs", clockOffsetMs);
@@ -249,6 +262,7 @@ public class ClusterMonitor {
     public NodeStatus pollNode(int nodeId) {
         ClusterConfig.NodeConfig nc = config.getNode(nodeId);
         int port = nc.getPort();
+        Long epoch = null;
 
         boolean up = false;
         int poolSize = nc.getPoolSize();
@@ -286,6 +300,21 @@ public class ClusterMonitor {
             clockOffsetMs = nodeTime - coordinatorMid;
 
             up = true;
+
+            // 3b. Membership epoch. A node behind the control plane's epoch (it missed a push,
+            // e.g. while it was starting) gets the current membership again. This also covers
+            // the first sighting of a restarted node.
+            try {
+                agentgrid.node.Membership current = config.membership();
+                long reported = callWithTimeout(a::getMembershipEpoch);
+                if (reported < current.getEpoch()) {
+                    callWithTimeout(() -> a.applyMembership(current));
+                    reported = callWithTimeout(a::getMembershipEpoch);
+                }
+                epoch = reported;
+            } catch (Exception ignored) {
+                // still starting: the next poll tries again
+            }
 
             // 4. Election view (a failure here leaves the node UP with an unknown view)
             try {
@@ -342,9 +371,18 @@ public class ClusterMonitor {
         }
 
         NodeStatus status = new NodeStatus(nodeId, port, up, poolSize, queueDepth, lamport, clockOffsetMs,
-                bindings, leaderView, electing, algorithm);
-        latestStatuses.put(nodeId, status);
+                bindings, leaderView, electing, algorithm).withMembership(epoch, nc.getWeight());
+        if (config.membership().contains(nodeId)) {   // not removed while this poll ran
+            latestStatuses.put(nodeId, status);
+        }
         return status;
+    }
+
+    /** Drops every trace of a node that was removed from the membership. */
+    public void forget(int nodeId) {
+        latestStatuses.remove(nodeId);
+        lastKnownState.remove(nodeId);
+        telemetryCursors.remove(nodeId);
     }
 
     /**
@@ -475,18 +513,23 @@ public class ClusterMonitor {
         }
     }
 
+    /** Status of every current member (a member not polled yet is reported down). */
     public List<NodeStatus> getSnapshot() {
         List<NodeStatus> list = new ArrayList<>();
-        for (int id : config.getNodeIds()) {
-            NodeStatus s = latestStatuses.get(id);
+        for (agentgrid.node.MemberSpec spec : config.membership().getMembers().values()) {
+            NodeStatus s = latestStatuses.get(spec.getId());
             if (s != null) {
                 list.add(s);
             } else {
-                ClusterConfig.NodeConfig nc = config.getNode(id);
-                list.add(new NodeStatus(id, nc.getPort(), false, nc.getPoolSize(), null, null, null, Collections.emptyList()));
+                list.add(new NodeStatus(spec.getId(), spec.getPort(), false, spec.getPoolSize(), null, null, null,
+                        Collections.emptyList()).withMembership(null, spec.getWeight()));
             }
         }
         return list;
+    }
+
+    public ClusterConfig getConfig() {
+        return config;
     }
 
     public List<Map<String, Object>> getSnapshotAsMaps() {

@@ -41,5 +41,14 @@ public interface NodeAgent extends AgentService {
      * to the current depth. The orchestrator calls it at job start and job end.
      */
     int takePeakQueueDepth() throws RemoteException;
+
+    /**
+     * Applies a membership pushed by the control plane if its epoch is higher than this node's;
+     * returns true if it was applied.
+     */
+    boolean applyMembership(Membership membership) throws RemoteException;
+
+    /** Epoch of the membership this node currently holds. */
+    long getMembershipEpoch() throws RemoteException;
 }
 

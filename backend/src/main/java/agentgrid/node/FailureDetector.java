@@ -32,6 +32,7 @@ public final class FailureDetector {
             Executors.newSingleThreadScheduledExecutor(ElectionNode.daemon("failure-detector-"));
     private final long bootMs = System.currentTimeMillis();
     private final AtomicBoolean gateOpen = new AtomicBoolean(false);
+    private final AtomicBoolean held = new AtomicBoolean(false);
 
     private int watchedLeader = -1;
     private int misses = 0;
@@ -47,7 +48,26 @@ public final class FailureDetector {
 
     /** Called on every sync() from the control plane; the first one opens the boot gate. */
     public void onSync() {
+        if (held.get()) {
+            return;   // a joining node waits for the membership that includes it
+        }
         openGate("first sync() from control plane");
+    }
+
+    /**
+     * For a node that is joining the cluster: its first election must wait until the
+     * membership that includes it has been applied, otherwise it would elect itself among
+     * members that do not know it yet. Neither sync() nor the BOOT_GATE_MS fallback opens the
+     * gate until releaseBootGate().
+     */
+    public void holdBootGate() {
+        held.set(true);
+    }
+
+    public void releaseBootGate(String why) {
+        if (held.compareAndSet(true, false)) {
+            openGate(why);
+        }
     }
 
     private void openGate(String why) {
@@ -60,7 +80,7 @@ public final class FailureDetector {
     private void tick() {
         try {
             if (!gateOpen.get()) {
-                if (System.currentTimeMillis() - bootMs >= BOOT_GATE_MS) {
+                if (!held.get() && System.currentTimeMillis() - bootMs >= BOOT_GATE_MS) {
                     openGate(BOOT_GATE_MS + " ms since boot without sync()");
                 }
                 return;

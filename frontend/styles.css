@@ -167,8 +167,43 @@ body {
 
 .cluster-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  /* 3 to 9 members: as many ~210 px cards per row as fit */
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap: 14px;
+}
+
+.fleet-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.fleet-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.fleet-input {
+  width: 64px;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
+.fleet-status {
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 420px;
+}
+
+.fleet-caption {
+  margin: 4px 0 10px;
+  font-size: 11px;
+  color: var(--text-dim);
 }
 
 @media (max-width: 1200px) {

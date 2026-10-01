@@ -2,7 +2,8 @@
 #
 # Use it when a control plane was killed without running its shutdown hook (Task Manager
 # "End task", taskkill /F, Stop-Process -Force): Windows gives a force-killed JVM no chance to
-# run hooks, so its node processes keep running and hold ports 1601-1605.
+# run hooks, so its node processes keep running and hold their ports (1601-1605, plus
+# 1600+id for nodes added at runtime).
 # Only java processes whose command line runs agentgrid.node.NodeMain or
 # agentgrid.control.ControlPlaneMain are stopped.
 
@@ -28,10 +29,11 @@ if (-not $targets) {
 }
 
 Start-Sleep -Milliseconds 500
-$busy = netstat -ano | Select-String 'LISTENING' | Select-String ':8080 |:160[1-5] '
+# Node ports are 1600 + node id; added nodes get ids above 5 (never reused), so check 1601-1699.
+$busy = netstat -ano | Select-String 'LISTENING' | Select-String ':8080 |:16(0[1-9]|[1-9][0-9]) '
 if ($busy) {
     Write-Host "Ports still in use:"
     $busy | ForEach-Object { Write-Host $_.Line }
 } else {
-    Write-Host "Ports 8080 and 1601-1605 are free."
+    Write-Host "Ports 8080 and 1601-1699 are free."
 }
