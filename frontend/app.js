@@ -13,7 +13,9 @@
     // {epoch, size, quorum, members: [{id, port, poolSize, weight}], nextId, ...} from the
     // "membership" SSE event or GET /api/cluster?view=membership.
     membership: null,
-    membershipListeners: []
+    membershipListeners: [],
+    // Called with every event from the SSE stream (e.g. MAPREDUCE_COMPLETE refreshes the index state).
+    eventListeners: []
   };
   let corpusPromise = null;
 
@@ -37,6 +39,8 @@
     /** Called with the membership view whenever its epoch changes (a node was added or removed). */
     onMembershipChange: (cb) => state.membershipListeners.push(cb),
     getMembership: () => state.membership,
+    /** Called with every new event from the SSE stream. */
+    onEvent: (cb) => state.eventListeners.push(cb),
     /** Current member ids, ascending (falls back to the polled node list before the first view). */
     memberIds: () => state.membership ? state.membership.members.map(m => m.id) : state.nodes.map(n => n.id),
     /**
@@ -74,8 +78,27 @@
     setElectionAlgorithm: (name) => postJson('/api/election/algorithm', { name }, 'Algorithm change failed'),
     startElection: (nodeId) => postJson('/api/election/start', { node: nodeId }, 'Election start failed'),
     killNode: (nodeId) => postJson(`/api/nodes/${nodeId}/kill`, {}, 'Kill failed'),
-    submitJob: (query, policy, consistency) =>
-      postJson('/api/jobs', consistency ? { query, policy, consistency } : { query, policy }, 'Job submission failed'),
+    submitJob: (query, policy, consistency, retrieval) => {
+      const body = { query, policy };
+      if (consistency) body.consistency = consistency;
+      if (retrieval) body.retrieval = retrieval;
+      return postJson('/api/jobs', body, 'Job submission failed');
+    },
+    // Exp 7: MapReduce (PySpark in local mode on the control-plane host) and its inverted index.
+    runMapReduce: (job, partitions, compare) =>
+      postJson('/api/mapreduce/run', { job, partitions, compare }, 'MapReduce run failed'),
+    mapReduceStatus: () => window.AgentGrid.getJson('/api/mapreduce/status', 'MapReduce status failed'),
+    mapReduceIndex: () => window.AgentGrid.getJson('/api/mapreduce/index', 'Index lookup failed'),
+    /** The last successful MapReduce result, or null if there is none (404). */
+    mapReduceLast: async () => {
+      const res = await fetch('/api/mapreduce/last');
+      if (res.status === 404) return null;
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Request failed' }));
+        throw new Error(err.error || 'MapReduce result lookup failed');
+      }
+      return res.json();
+    },
     getJson: async (url, failMsg) => {
       const res = await fetch(url);
       if (!res.ok) {
@@ -223,6 +246,9 @@
           const ev = JSON.parse(e.data);
           addEvent(ev);
           if (ev.type === 'MEMBERSHIP_CHANGED') refreshMembership();
+          state.eventListeners.forEach(cb => {
+            try { cb(ev); } catch (listenerErr) { console.error('Event listener failed:', listenerErr); }
+          });
         } catch (err) {
           console.error('Failed to parse event SSE:', err);
         }

@@ -1,0 +1,8067 @@
+{
+  "documents": 40,
+  "terms": 669,
+  "postings": 1156,
+  "top_by_document_frequency": [
+    [
+      "every",
+      15
+    ],
+    [
+      "node",
+      12
+    ],
+    [
+      "message",
+      11
+    ],
+    [
+      "time",
+      10
+    ],
+    [
+      "process",
+      9
+    ],
+    [
+      "request",
+      9
+    ],
+    [
+      "send",
+      9
+    ],
+    [
+      "algorithm",
+      8
+    ],
+    [
+      "after",
+      7
+    ],
+    [
+      "leader",
+      7
+    ]
+  ],
+  "index": {
+    "abort": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-13",
+          1
+        ]
+      ]
+    },
+    "absorb": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-29",
+          1
+        ]
+      ]
+    },
+    "accept": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-14",
+          1
+        ],
+        [
+          "doc-25",
+          1
+        ]
+      ]
+    },
+    "acceptor": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-11",
+          2
+        ]
+      ]
+    },
+    "accumulate": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "achieving": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-17",
+          1
+        ]
+      ]
+    },
+    "across": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ],
+        [
+          "doc-27",
+          1
+        ],
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "adapt": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "added": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "adds": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-10",
+          1
+        ],
+        [
+          "doc-17",
+          1
+        ]
+      ]
+    },
+    "after": {
+      "df": 7,
+      "postings": [
+        [
+          "doc-10",
+          1
+        ],
+        [
+          "doc-13",
+          1
+        ],
+        [
+          "doc-16",
+          1
+        ],
+        [
+          "doc-27",
+          2
+        ],
+        [
+          "doc-28",
+          1
+        ],
+        [
+          "doc-34",
+          1
+        ],
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "against": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ]
+      ]
+    },
+    "agrawala": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "agree": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-06",
+          1
+        ],
+        [
+          "doc-11",
+          1
+        ]
+      ]
+    },
+    "agreement": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ]
+      ]
+    },
+    "algorithm": {
+      "df": 8,
+      "postings": [
+        [
+          "doc-06",
+          2
+        ],
+        [
+          "doc-07",
+          2
+        ],
+        [
+          "doc-08",
+          1
+        ],
+        [
+          "doc-11",
+          1
+        ],
+        [
+          "doc-12",
+          1
+        ],
+        [
+          "doc-31",
+          1
+        ],
+        [
+          "doc-32",
+          2
+        ],
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "alive": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-07",
+          2
+        ],
+        [
+          "doc-10",
+          1
+        ]
+      ]
+    },
+    "amount": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "announce": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-07",
+          1
+        ],
+        [
+          "doc-13",
+          1
+        ]
+      ]
+    },
+    "another": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ],
+        [
+          "doc-03",
+          1
+        ],
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "answer": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-07",
+          1
+        ],
+        [
+          "doc-18",
+          1
+        ]
+      ]
+    },
+    "anticipate": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "apart": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "applied": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-28",
+          1
+        ]
+      ]
+    },
+    "arbitrarily": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "argument": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ]
+      ]
+    },
+    "around": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-08",
+          1
+        ]
+      ]
+    },
+    "arranged": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-08",
+          1
+        ]
+      ]
+    },
+    "arrive": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "arriving": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-31",
+          1
+        ]
+      ]
+    },
+    "asks": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-13",
+          1
+        ],
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "assign": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "assigned": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "asynchronous": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ]
+      ]
+    },
+    "attaching": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "attempt": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-28",
+          1
+        ]
+      ]
+    },
+    "availability": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-18",
+          1
+        ]
+      ]
+    },
+    "available": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-18",
+          1
+        ]
+      ]
+    },
+    "average": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-06",
+          2
+        ]
+      ]
+    },
+    "avoid": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "back": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-27",
+          1
+        ]
+      ]
+    },
+    "background": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "backing": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "backup": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-14",
+          4
+        ],
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "balancer": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "balancing": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-19",
+          2
+        ],
+        [
+          "doc-20",
+          2
+        ],
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "based": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-13",
+          1
+        ],
+        [
+          "doc-32",
+          1
+        ],
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "batch": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "become": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "before": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-03",
+          1
+        ],
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-26",
+          2
+        ],
+        [
+          "doc-31",
+          1
+        ]
+      ]
+    },
+    "behave": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-17",
+          1
+        ],
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "believe": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-25",
+          1
+        ]
+      ]
+    },
+    "berkeley": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-06",
+          2
+        ]
+      ]
+    },
+    "between": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-18",
+          1
+        ],
+        [
+          "doc-26",
+          1
+        ],
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "block": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-13",
+          1
+        ],
+        [
+          "doc-36",
+          3
+        ]
+      ]
+    },
+    "blockchain": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "blocking": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-13",
+          1
+        ]
+      ]
+    },
+    "both": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-03",
+          1
+        ],
+        [
+          "doc-23",
+          1
+        ],
+        [
+          "doc-25",
+          1
+        ],
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "bottleneck": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-19",
+          1
+        ]
+      ]
+    },
+    "bound": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "bounded": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-26",
+          2
+        ]
+      ]
+    },
+    "brain": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-25",
+          3
+        ]
+      ]
+    },
+    "break": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "broadcast": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-35",
+          2
+        ]
+      ]
+    },
+    "bully": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-07",
+          2
+        ],
+        [
+          "doc-08",
+          1
+        ]
+      ]
+    },
+    "burst": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-21",
+          1
+        ],
+        [
+          "doc-29",
+          1
+        ]
+      ]
+    },
+    "busy": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "but": {
+      "df": 5,
+      "postings": [
+        [
+          "doc-08",
+          1
+        ],
+        [
+          "doc-21",
+          1
+        ],
+        [
+          "doc-27",
+          1
+        ],
+        [
+          "doc-28",
+          1
+        ],
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "byzantine": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-30",
+          4
+        ]
+      ]
+    },
+    "cache": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-23",
+          1
+        ],
+        [
+          "doc-34",
+          2
+        ]
+      ]
+    },
+    "cached": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "caching": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "call": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-01",
+          3
+        ],
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "cannot": {
+      "df": 5,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ],
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-20",
+          1
+        ],
+        [
+          "doc-29",
+          1
+        ],
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "cap": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-18",
+          2
+        ]
+      ]
+    },
+    "capacitie": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "capacity": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-19",
+          1
+        ],
+        [
+          "doc-20",
+          1
+        ],
+        [
+          "doc-21",
+          1
+        ],
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "capture": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-27",
+          1
+        ]
+      ]
+    },
+    "carefully": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "carrie": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-03",
+          1
+        ]
+      ]
+    },
+    "case": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ]
+      ]
+    },
+    "causal": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "causality": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-03",
+          1
+        ]
+      ]
+    },
+    "causally": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-03",
+          1
+        ]
+      ]
+    },
+    "cause": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ]
+      ]
+    },
+    "chandy": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-31",
+          1
+        ]
+      ]
+    },
+    "changing": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "channel": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-31",
+          2
+        ]
+      ]
+    },
+    "checkpoint": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-27",
+          3
+        ]
+      ]
+    },
+    "checkpointing": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-27",
+          2
+        ],
+        [
+          "doc-31",
+          1
+        ]
+      ]
+    },
+    "choose": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-17",
+          1
+        ],
+        [
+          "doc-18",
+          1
+        ]
+      ]
+    },
+    "choosing": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-15",
+          1
+        ]
+      ]
+    },
+    "chosen": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "chunk": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "circulate": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-08",
+          1
+        ]
+      ]
+    },
+    "client": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-01",
+          3
+        ],
+        [
+          "doc-14",
+          1
+        ],
+        [
+          "doc-28",
+          1
+        ]
+      ]
+    },
+    "clock": {
+      "df": 6,
+      "postings": [
+        [
+          "doc-03",
+          2
+        ],
+        [
+          "doc-04",
+          4
+        ],
+        [
+          "doc-05",
+          4
+        ],
+        [
+          "doc-06",
+          1
+        ],
+        [
+          "doc-26",
+          1
+        ],
+        [
+          "doc-39",
+          2
+        ]
+      ]
+    },
+    "close": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "cluster": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-24",
+          1
+        ]
+      ]
+    },
+    "collect": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-08",
+          1
+        ]
+      ]
+    },
+    "collective": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-35",
+          3
+        ]
+      ]
+    },
+    "combine": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ],
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "come": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "command": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ]
+      ]
+    },
+    "commit": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-13",
+          6
+        ]
+      ]
+    },
+    "committed": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ]
+      ]
+    },
+    "common": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-06",
+          1
+        ],
+        [
+          "doc-11",
+          1
+        ]
+      ]
+    },
+    "communication": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-35",
+          1
+        ],
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "comparing": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-04",
+          1
+        ]
+      ]
+    },
+    "compensate": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-06",
+          1
+        ]
+      ]
+    },
+    "complete": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "completed": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-17",
+          1
+        ]
+      ]
+    },
+    "computation": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ],
+        [
+          "doc-27",
+          1
+        ]
+      ]
+    },
+    "compute": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-06",
+          1
+        ],
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "concurrent": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-04",
+          2
+        ],
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "concurrently": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ]
+      ]
+    },
+    "configured": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "conflicting": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-14",
+          1
+        ],
+        [
+          "doc-16",
+          1
+        ],
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "connection": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-10",
+          1
+        ]
+      ]
+    },
+    "consecutive": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-10",
+          1
+        ]
+      ]
+    },
+    "consensus": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-11",
+          3
+        ],
+        [
+          "doc-12",
+          2
+        ],
+        [
+          "doc-13",
+          1
+        ]
+      ]
+    },
+    "consider": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "considered": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ]
+      ]
+    },
+    "consistency": {
+      "df": 5,
+      "postings": [
+        [
+          "doc-14",
+          1
+        ],
+        [
+          "doc-16",
+          2
+        ],
+        [
+          "doc-17",
+          3
+        ],
+        [
+          "doc-18",
+          2
+        ],
+        [
+          "doc-24",
+          1
+        ]
+      ]
+    },
+    "consistent": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-18",
+          1
+        ],
+        [
+          "doc-23",
+          2
+        ],
+        [
+          "doc-27",
+          1
+        ],
+        [
+          "doc-31",
+          1
+        ]
+      ]
+    },
+    "consulting": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-26",
+          1
+        ]
+      ]
+    },
+    "consumer": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-29",
+          3
+        ]
+      ]
+    },
+    "contact": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-15",
+          2
+        ]
+      ]
+    },
+    "contention": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "converge": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "converse": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-03",
+          1
+        ]
+      ]
+    },
+    "coordinated": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-14",
+          1
+        ],
+        [
+          "doc-27",
+          1
+        ]
+      ]
+    },
+    "coordination": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-17",
+          1
+        ]
+      ]
+    },
+    "coordinator": {
+      "df": 5,
+      "postings": [
+        [
+          "doc-06",
+          1
+        ],
+        [
+          "doc-07",
+          1
+        ],
+        [
+          "doc-08",
+          1
+        ],
+        [
+          "doc-13",
+          2
+        ],
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "copie": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-34",
+          2
+        ]
+      ]
+    },
+    "copy": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-17",
+          1
+        ],
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "core": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "corpora": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "correction": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-06",
+          1
+        ]
+      ]
+    },
+    "correctness": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-17",
+          1
+        ]
+      ]
+    },
+    "cost": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-21",
+          1
+        ],
+        [
+          "doc-27",
+          1
+        ],
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "could": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-14",
+          1
+        ]
+      ]
+    },
+    "count": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-10",
+          1
+        ],
+        [
+          "doc-19",
+          1
+        ]
+      ]
+    },
+    "counter": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-03",
+          3
+        ],
+        [
+          "doc-04",
+          1
+        ]
+      ]
+    },
+    "counting": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "crash": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ],
+        [
+          "doc-27",
+          1
+        ]
+      ]
+    },
+    "crashe": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-13",
+          1
+        ]
+      ]
+    },
+    "crashed": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ],
+        [
+          "doc-10",
+          1
+        ]
+      ]
+    },
+    "creating": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "critical": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "crosse": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "crystal": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "current": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-19",
+          1
+        ],
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "data": {
+      "df": 5,
+      "postings": [
+        [
+          "doc-16",
+          1
+        ],
+        [
+          "doc-18",
+          1
+        ],
+        [
+          "doc-33",
+          1
+        ],
+        [
+          "doc-34",
+          2
+        ],
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "dataset": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "days": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "dead": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ]
+      ]
+    },
+    "deadlock": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-31",
+          1
+        ]
+      ]
+    },
+    "decide": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ],
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "decision": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-13",
+          1
+        ],
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "declare": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ],
+        [
+          "doc-10",
+          1
+        ]
+      ]
+    },
+    "decouple": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-29",
+          1
+        ]
+      ]
+    },
+    "delay": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "delivery": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-29",
+          1
+        ]
+      ]
+    },
+    "depend": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-26",
+          1
+        ],
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "depth": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-29",
+          1
+        ]
+      ]
+    },
+    "designed": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ]
+      ]
+    },
+    "detect": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-28",
+          1
+        ]
+      ]
+    },
+    "detecting": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-31",
+          1
+        ]
+      ]
+    },
+    "detection": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ],
+        [
+          "doc-10",
+          2
+        ],
+        [
+          "doc-24",
+          1
+        ],
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "detector": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-09",
+          4
+        ]
+      ]
+    },
+    "deterministic": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ]
+      ]
+    },
+    "did": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "differ": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-06",
+          1
+        ]
+      ]
+    },
+    "different": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-05",
+          2
+        ],
+        [
+          "doc-21",
+          1
+        ],
+        [
+          "doc-36",
+          1
+        ],
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "discard": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-28",
+          1
+        ]
+      ]
+    },
+    "disk": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "dispatche": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "dissemination": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-24",
+          1
+        ]
+      ]
+    },
+    "distinguish": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-04",
+          1
+        ]
+      ]
+    },
+    "distributed": {
+      "df": 6,
+      "postings": [
+        [
+          "doc-13",
+          1
+        ],
+        [
+          "doc-18",
+          1
+        ],
+        [
+          "doc-23",
+          1
+        ],
+        [
+          "doc-31",
+          2
+        ],
+        [
+          "doc-32",
+          2
+        ],
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "diverge": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-25",
+          1
+        ]
+      ]
+    },
+    "divide": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "divided": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "down": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "drift": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-05",
+          3
+        ],
+        [
+          "doc-26",
+          1
+        ],
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "drifting": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "duplicate": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-28",
+          1
+        ],
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "durable": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "during": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-18",
+          2
+        ],
+        [
+          "doc-27",
+          1
+        ]
+      ]
+    },
+    "early": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-29",
+          1
+        ]
+      ]
+    },
+    "easier": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ]
+      ]
+    },
+    "either": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-13",
+          1
+        ]
+      ]
+    },
+    "elect": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-07",
+          1
+        ],
+        [
+          "doc-12",
+          1
+        ]
+      ]
+    },
+    "electing": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-26",
+          1
+        ]
+      ]
+    },
+    "election": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-07",
+          4
+        ],
+        [
+          "doc-08",
+          3
+        ],
+        [
+          "doc-09",
+          2
+        ],
+        [
+          "doc-12",
+          1
+        ]
+      ]
+    },
+    "end": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "enough": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-15",
+          1
+        ]
+      ]
+    },
+    "ensure": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "enter": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-32",
+          2
+        ]
+      ]
+    },
+    "entry": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ]
+      ]
+    },
+    "equal": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-03",
+          1
+        ]
+      ]
+    },
+    "estimate": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "even": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-11",
+          2
+        ]
+      ]
+    },
+    "evenly": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-23",
+          1
+        ],
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "event": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-03",
+          2
+        ],
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "eventual": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-16",
+          2
+        ],
+        [
+          "doc-24",
+          1
+        ]
+      ]
+    },
+    "every": {
+      "df": 15,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ],
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-03",
+          2
+        ],
+        [
+          "doc-06",
+          1
+        ],
+        [
+          "doc-07",
+          1
+        ],
+        [
+          "doc-09",
+          1
+        ],
+        [
+          "doc-13",
+          1
+        ],
+        [
+          "doc-14",
+          1
+        ],
+        [
+          "doc-15",
+          1
+        ],
+        [
+          "doc-17",
+          2
+        ],
+        [
+          "doc-31",
+          1
+        ],
+        [
+          "doc-32",
+          1
+        ],
+        [
+          "doc-35",
+          1
+        ],
+        [
+          "doc-39",
+          1
+        ],
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "everywhere": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-13",
+          2
+        ]
+      ]
+    },
+    "exactly": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-37",
+          2
+        ]
+      ]
+    },
+    "exchange": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-24",
+          1
+        ]
+      ]
+    },
+    "exchanged": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "exclusion": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-32",
+          2
+        ]
+      ]
+    },
+    "execute": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-28",
+          1
+        ],
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "execution": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "expire": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-10",
+          1
+        ],
+        [
+          "doc-26",
+          1
+        ]
+      ]
+    },
+    "expiry": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-26",
+          1
+        ]
+      ]
+    },
+    "external": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-06",
+          1
+        ]
+      ]
+    },
+    "fail": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ],
+        [
+          "doc-11",
+          1
+        ],
+        [
+          "doc-14",
+          1
+        ],
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "failed": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-07",
+          1
+        ],
+        [
+          "doc-10",
+          1
+        ],
+        [
+          "doc-15",
+          1
+        ],
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "failover": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ]
+      ]
+    },
+    "failure": {
+      "df": 6,
+      "postings": [
+        [
+          "doc-09",
+          3
+        ],
+        [
+          "doc-11",
+          1
+        ],
+        [
+          "doc-24",
+          1
+        ],
+        [
+          "doc-27",
+          1
+        ],
+        [
+          "doc-30",
+          1
+        ],
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "fair": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-19",
+          1
+        ]
+      ]
+    },
+    "false": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ]
+      ]
+    },
+    "far": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-08",
+          1
+        ]
+      ]
+    },
+    "fast": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-15",
+          2
+        ]
+      ]
+    },
+    "fault": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-30",
+          3
+        ]
+      ]
+    },
+    "feed": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ]
+      ]
+    },
+    "fencing": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-25",
+          1
+        ]
+      ]
+    },
+    "few": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ],
+        [
+          "doc-24",
+          1
+        ]
+      ]
+    },
+    "fewer": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-08",
+          1
+        ]
+      ]
+    },
+    "finally": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-07",
+          1
+        ]
+      ]
+    },
+    "finishe": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "finished": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "first": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-23",
+          1
+        ],
+        [
+          "doc-28",
+          1
+        ],
+        [
+          "doc-38",
+          2
+        ]
+      ]
+    },
+    "fixed": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-19",
+          1
+        ],
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "follow": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-23",
+          1
+        ],
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "follower": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ],
+        [
+          "doc-26",
+          1
+        ]
+      ]
+    },
+    "forming": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "forward": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-14",
+          1
+        ]
+      ]
+    },
+    "framework": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "frequent": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-27",
+          1
+        ]
+      ]
+    },
+    "frequently": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "fully": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ]
+      ]
+    },
+    "function": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "gather": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "gets": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "getting": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ]
+      ]
+    },
+    "give": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ],
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "global": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-27",
+          1
+        ],
+        [
+          "doc-31",
+          1
+        ]
+      ]
+    },
+    "good": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "gossip": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-24",
+          3
+        ]
+      ]
+    },
+    "grant": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-26",
+          1
+        ]
+      ]
+    },
+    "graph": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "greater": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-15",
+          1
+        ]
+      ]
+    },
+    "group": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-06",
+          2
+        ],
+        [
+          "doc-25",
+          1
+        ],
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "grow": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-08",
+          1
+        ],
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "growing": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-29",
+          1
+        ]
+      ]
+    },
+    "guarantee": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ],
+        [
+          "doc-16",
+          1
+        ],
+        [
+          "doc-29",
+          1
+        ],
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "guide": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-18",
+          1
+        ]
+      ]
+    },
+    "half": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-06",
+          1
+        ]
+      ]
+    },
+    "handle": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ],
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "happen": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-25",
+          1
+        ]
+      ]
+    },
+    "happened": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-04",
+          1
+        ]
+      ]
+    },
+    "hard": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "hash": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-23",
+          2
+        ]
+      ]
+    },
+    "hashing": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-23",
+          2
+        ]
+      ]
+    },
+    "heartbeat": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-10",
+          5
+        ]
+      ]
+    },
+    "heavy": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "heterogeneous": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-19",
+          1
+        ]
+      ]
+    },
+    "higher": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-07",
+          2
+        ]
+      ]
+    },
+    "highest": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-07",
+          2
+        ],
+        [
+          "doc-08",
+          2
+        ]
+      ]
+    },
+    "hold": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ],
+        [
+          "doc-03",
+          1
+        ],
+        [
+          "doc-25",
+          1
+        ]
+      ]
+    },
+    "holder": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-32",
+          2
+        ]
+      ]
+    },
+    "idempotency": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-28",
+          1
+        ]
+      ]
+    },
+    "idempotent": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-28",
+          1
+        ]
+      ]
+    },
+    "identifier": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-07",
+          2
+        ],
+        [
+          "doc-08",
+          2
+        ],
+        [
+          "doc-28",
+          1
+        ],
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "ignore": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-19",
+          1
+        ]
+      ]
+    },
+    "ignored": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ]
+      ]
+    },
+    "including": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "incorrectly": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "increment": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-03",
+          1
+        ]
+      ]
+    },
+    "indexing": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "information": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-24",
+          1
+        ]
+      ]
+    },
+    "input": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ],
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "instead": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-04",
+          1
+        ]
+      ]
+    },
+    "intermediate": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "interval": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-10",
+          1
+        ],
+        [
+          "doc-26",
+          1
+        ]
+      ]
+    },
+    "invalidation": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "invocation": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-01",
+          2
+        ]
+      ]
+    },
+    "involve": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "itself": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-07",
+          1
+        ]
+      ]
+    },
+    "java": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ]
+      ]
+    },
+    "job": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-38",
+          1
+        ],
+        [
+          "doc-40",
+          3
+        ]
+      ]
+    },
+    "jobs": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "join": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-23",
+          1
+        ]
+      ]
+    },
+    "keep": {
+      "df": 6,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-29",
+          1
+        ],
+        [
+          "doc-31",
+          1
+        ],
+        [
+          "doc-33",
+          1
+        ],
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "key": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ],
+        [
+          "doc-23",
+          1
+        ],
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "keys": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-23",
+          2
+        ],
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "lamport": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-03",
+          3
+        ],
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-31",
+          1
+        ],
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "large": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-22",
+          2
+        ]
+      ]
+    },
+    "larger": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ]
+      ]
+    },
+    "last": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "latency": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-08",
+          1
+        ],
+        [
+          "doc-10",
+          1
+        ],
+        [
+          "doc-17",
+          1
+        ],
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "latest": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-15",
+          1
+        ],
+        [
+          "doc-27",
+          1
+        ]
+      ]
+    },
+    "leader": {
+      "df": 7,
+      "postings": [
+        [
+          "doc-07",
+          2
+        ],
+        [
+          "doc-09",
+          2
+        ],
+        [
+          "doc-11",
+          1
+        ],
+        [
+          "doc-12",
+          2
+        ],
+        [
+          "doc-17",
+          1
+        ],
+        [
+          "doc-25",
+          3
+        ],
+        [
+          "doc-26",
+          5
+        ]
+      ]
+    },
+    "leadership": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ],
+        [
+          "doc-26",
+          1
+        ]
+      ]
+    },
+    "learner": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ]
+      ]
+    },
+    "lease": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-26",
+          4
+        ]
+      ]
+    },
+    "least": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-21",
+          3
+        ],
+        [
+          "doc-29",
+          1
+        ],
+        [
+          "doc-30",
+          1
+        ],
+        [
+          "doc-37",
+          2
+        ]
+      ]
+    },
+    "leave": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ],
+        [
+          "doc-23",
+          1
+        ],
+        [
+          "doc-25",
+          1
+        ]
+      ]
+    },
+    "length": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "lengthen": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-19",
+          1
+        ]
+      ]
+    },
+    "let": {
+      "df": 5,
+      "postings": [
+        [
+          "doc-15",
+          1
+        ],
+        [
+          "doc-25",
+          1
+        ],
+        [
+          "doc-26",
+          1
+        ],
+        [
+          "doc-28",
+          1
+        ],
+        [
+          "doc-29",
+          1
+        ]
+      ]
+    },
+    "lets": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ],
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "librarie": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "like": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ],
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "limit": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-04",
+          1
+        ]
+      ]
+    },
+    "limited": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "linearizability": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-17",
+          1
+        ]
+      ]
+    },
+    "live": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ],
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "load": {
+      "df": 7,
+      "postings": [
+        [
+          "doc-19",
+          3
+        ],
+        [
+          "doc-20",
+          2
+        ],
+        [
+          "doc-21",
+          4
+        ],
+        [
+          "doc-23",
+          1
+        ],
+        [
+          "doc-29",
+          1
+        ],
+        [
+          "doc-33",
+          1
+        ],
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "loaded": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-21",
+          2
+        ]
+      ]
+    },
+    "local": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-01",
+          2
+        ],
+        [
+          "doc-03",
+          1
+        ]
+      ]
+    },
+    "locally": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-26",
+          1
+        ]
+      ]
+    },
+    "log": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ]
+      ]
+    },
+    "logarithmic": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-24",
+          1
+        ],
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "logged": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-27",
+          1
+        ]
+      ]
+    },
+    "logical": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-08",
+          1
+        ],
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "logs": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "long": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ],
+        [
+          "doc-15",
+          1
+        ],
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "longer": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ]
+      ]
+    },
+    "look": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ],
+        [
+          "doc-09",
+          1
+        ]
+      ]
+    },
+    "lose": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-28",
+          1
+        ],
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "lost": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-27",
+          1
+        ],
+        [
+          "doc-28",
+          1
+        ]
+      ]
+    },
+    "machine": {
+      "df": 5,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ],
+        [
+          "doc-10",
+          1
+        ],
+        [
+          "doc-26",
+          1
+        ],
+        [
+          "doc-38",
+          1
+        ],
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "majority": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ],
+        [
+          "doc-12",
+          1
+        ],
+        [
+          "doc-25",
+          2
+        ]
+      ]
+    },
+    "make": {
+      "df": 6,
+      "postings": [
+        [
+          "doc-11",
+          2
+        ],
+        [
+          "doc-13",
+          1
+        ],
+        [
+          "doc-15",
+          2
+        ],
+        [
+          "doc-17",
+          1
+        ],
+        [
+          "doc-19",
+          1
+        ],
+        [
+          "doc-28",
+          1
+        ]
+      ]
+    },
+    "makespan": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-19",
+          1
+        ]
+      ]
+    },
+    "malicious": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "many": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-07",
+          2
+        ],
+        [
+          "doc-19",
+          1
+        ],
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "map": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          2
+        ]
+      ]
+    },
+    "mapreduce": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          2
+        ]
+      ]
+    },
+    "maps": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-23",
+          1
+        ]
+      ]
+    },
+    "marker": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-31",
+          2
+        ]
+      ]
+    },
+    "marshal": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ]
+      ]
+    },
+    "matrice": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "matrix": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-36",
+          2
+        ]
+      ]
+    },
+    "maximum": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-03",
+          1
+        ],
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "membership": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-24",
+          1
+        ]
+      ]
+    },
+    "memory": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "merge": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "message": {
+      "df": 11,
+      "postings": [
+        [
+          "doc-03",
+          2
+        ],
+        [
+          "doc-07",
+          3
+        ],
+        [
+          "doc-08",
+          2
+        ],
+        [
+          "doc-10",
+          1
+        ],
+        [
+          "doc-27",
+          1
+        ],
+        [
+          "doc-28",
+          1
+        ],
+        [
+          "doc-29",
+          3
+        ],
+        [
+          "doc-30",
+          1
+        ],
+        [
+          "doc-31",
+          1
+        ],
+        [
+          "doc-35",
+          1
+        ],
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "method": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-01",
+          4
+        ]
+      ]
+    },
+    "mid": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "million": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "misleading": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "miss": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-10",
+          1
+        ]
+      ]
+    },
+    "missed": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-10",
+          1
+        ]
+      ]
+    },
+    "model": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-18",
+          1
+        ]
+      ]
+    },
+    "money": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-17",
+          1
+        ]
+      ]
+    },
+    "move": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-06",
+          1
+        ],
+        [
+          "doc-23",
+          1
+        ],
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "moving": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "mpi": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "much": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "multiple": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "multiplication": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-36",
+          2
+        ]
+      ]
+    },
+    "mutual": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-32",
+          2
+        ]
+      ]
+    },
+    "name": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ]
+      ]
+    },
+    "need": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ],
+        [
+          "doc-16",
+          1
+        ],
+        [
+          "doc-17",
+          1
+        ],
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "needed": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "needless": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ]
+      ]
+    },
+    "network": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ],
+        [
+          "doc-18",
+          2
+        ],
+        [
+          "doc-28",
+          1
+        ]
+      ]
+    },
+    "never": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "new": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-16",
+          1
+        ],
+        [
+          "doc-19",
+          1
+        ],
+        [
+          "doc-26",
+          1
+        ]
+      ]
+    },
+    "next": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-19",
+          1
+        ]
+      ]
+    },
+    "node": {
+      "df": 12,
+      "postings": [
+        [
+          "doc-02",
+          2
+        ],
+        [
+          "doc-05",
+          1
+        ],
+        [
+          "doc-06",
+          2
+        ],
+        [
+          "doc-07",
+          6
+        ],
+        [
+          "doc-08",
+          2
+        ],
+        [
+          "doc-19",
+          2
+        ],
+        [
+          "doc-23",
+          1
+        ],
+        [
+          "doc-24",
+          2
+        ],
+        [
+          "doc-30",
+          3
+        ],
+        [
+          "doc-33",
+          4
+        ],
+        [
+          "doc-38",
+          1
+        ],
+        [
+          "doc-40",
+          3
+        ]
+      ]
+    },
+    "normal": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-27",
+          1
+        ]
+      ]
+    },
+    "ntp": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "number": {
+      "df": 6,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-04",
+          2
+        ],
+        [
+          "doc-12",
+          1
+        ],
+        [
+          "doc-20",
+          1
+        ],
+        [
+          "doc-24",
+          1
+        ],
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "object": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-01",
+          2
+        ],
+        [
+          "doc-17",
+          1
+        ]
+      ]
+    },
+    "observability": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "offer": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-18",
+          1
+        ]
+      ]
+    },
+    "offset": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ],
+        [
+          "doc-06",
+          1
+        ]
+      ]
+    },
+    "once": {
+      "df": 6,
+      "postings": [
+        [
+          "doc-07",
+          1
+        ],
+        [
+          "doc-08",
+          1
+        ],
+        [
+          "doc-12",
+          1
+        ],
+        [
+          "doc-28",
+          1
+        ],
+        [
+          "doc-29",
+          2
+        ],
+        [
+          "doc-37",
+          6
+        ]
+      ]
+    },
+    "onto": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-23",
+          1
+        ]
+      ]
+    },
+    "operation": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-27",
+          1
+        ],
+        [
+          "doc-28",
+          2
+        ],
+        [
+          "doc-35",
+          2
+        ],
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "optional": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-18",
+          1
+        ]
+      ]
+    },
+    "orchestration": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "orchestrator": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-40",
+          3
+        ]
+      ]
+    },
+    "order": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ],
+        [
+          "doc-19",
+          1
+        ],
+        [
+          "doc-32",
+          1
+        ],
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "ordered": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "orphaned": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "oscillator": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "otherwise": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-14",
+          1
+        ]
+      ]
+    },
+    "out": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-15",
+          1
+        ]
+      ]
+    },
+    "outgoing": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-31",
+          1
+        ]
+      ]
+    },
+    "output": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "over": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ],
+        [
+          "doc-05",
+          1
+        ],
+        [
+          "doc-22",
+          1
+        ],
+        [
+          "doc-27",
+          1
+        ]
+      ]
+    },
+    "overlap": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-15",
+          1
+        ]
+      ]
+    },
+    "overloaded": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-33",
+          1
+        ],
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "owns": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "pace": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-29",
+          1
+        ]
+      ]
+    },
+    "parallel": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-22",
+          1
+        ],
+        [
+          "doc-36",
+          2
+        ]
+      ]
+    },
+    "part": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ],
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "partial": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "participant": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-13",
+          2
+        ],
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "partition": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-18",
+          3
+        ],
+        [
+          "doc-25",
+          2
+        ],
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "partitioning": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "pass": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-08",
+          1
+        ]
+      ]
+    },
+    "passe": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "passing": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "paxo": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-11",
+          2
+        ],
+        [
+          "doc-12",
+          1
+        ]
+      ]
+    },
+    "peer": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-24",
+          1
+        ],
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "per": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-05",
+          1
+        ],
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "period": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ]
+      ]
+    },
+    "periodic": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-10",
+          1
+        ]
+      ]
+    },
+    "periodically": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-24",
+          1
+        ]
+      ]
+    },
+    "permission": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "phase": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-13",
+          5
+        ]
+      ]
+    },
+    "physical": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "pick": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "place": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "plus": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-03",
+          1
+        ],
+        [
+          "doc-15",
+          1
+        ],
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "poll": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-06",
+          1
+        ]
+      ]
+    },
+    "pool": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-02",
+          4
+        ]
+      ]
+    },
+    "possibly": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-18",
+          1
+        ]
+      ]
+    },
+    "practical": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ],
+        [
+          "doc-11",
+          1
+        ]
+      ]
+    },
+    "precede": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-03",
+          1
+        ]
+      ]
+    },
+    "prepare": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-13",
+          1
+        ]
+      ]
+    },
+    "prevent": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-25",
+          1
+        ]
+      ]
+    },
+    "primarie": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-14",
+          1
+        ]
+      ]
+    },
+    "primary": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-14",
+          5
+        ]
+      ]
+    },
+    "problem": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ]
+      ]
+    },
+    "procedure": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "process": {
+      "df": 9,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ],
+        [
+          "doc-03",
+          1
+        ],
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-09",
+          2
+        ],
+        [
+          "doc-10",
+          1
+        ],
+        [
+          "doc-22",
+          1
+        ],
+        [
+          "doc-31",
+          1
+        ],
+        [
+          "doc-32",
+          2
+        ],
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "processe": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-11",
+          1
+        ],
+        [
+          "doc-27",
+          1
+        ],
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "processed": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-29",
+          1
+        ]
+      ]
+    },
+    "produce": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-28",
+          1
+        ]
+      ]
+    },
+    "producer": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-29",
+          1
+        ]
+      ]
+    },
+    "product": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-36",
+          2
+        ]
+      ]
+    },
+    "progress": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-11",
+          2
+        ]
+      ]
+    },
+    "promoted": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-14",
+          1
+        ]
+      ]
+    },
+    "promotion": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-14",
+          1
+        ]
+      ]
+    },
+    "propagated": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "propertie": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-31",
+          1
+        ]
+      ]
+    },
+    "proportional": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "proposer": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ]
+      ]
+    },
+    "protocol": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ],
+        [
+          "doc-24",
+          2
+        ],
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "prove": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-03",
+          1
+        ]
+      ]
+    },
+    "provide": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "querie": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "query": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "queue": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-02",
+          3
+        ],
+        [
+          "doc-21",
+          1
+        ],
+        [
+          "doc-29",
+          4
+        ]
+      ]
+    },
+    "quickly": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "quorum": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-15",
+          3
+        ],
+        [
+          "doc-25",
+          1
+        ],
+        [
+          "doc-26",
+          1
+        ]
+      ]
+    },
+    "raft": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-12",
+          2
+        ]
+      ]
+    },
+    "random": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-24",
+          1
+        ]
+      ]
+    },
+    "randomized": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ]
+      ]
+    },
+    "range": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-29",
+          1
+        ]
+      ]
+    },
+    "rate": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "raw": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "reach": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "reachable": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-15",
+          1
+        ]
+      ]
+    },
+    "reache": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ]
+      ]
+    },
+    "react": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "read": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-14",
+          1
+        ],
+        [
+          "doc-15",
+          3
+        ],
+        [
+          "doc-17",
+          1
+        ],
+        [
+          "doc-26",
+          1
+        ]
+      ]
+    },
+    "reader": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "reading": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-06",
+          1
+        ],
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "real": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-18",
+          1
+        ]
+      ]
+    },
+    "reason": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "rebalancing": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "receive": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-19",
+          1
+        ]
+      ]
+    },
+    "receiver": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-03",
+          1
+        ],
+        [
+          "doc-10",
+          1
+        ]
+      ]
+    },
+    "recent": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-17",
+          1
+        ]
+      ]
+    },
+    "recognized": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ]
+      ]
+    },
+    "record": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-31",
+          2
+        ],
+        [
+          "doc-33",
+          2
+        ],
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "recorded": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-31",
+          1
+        ]
+      ]
+    },
+    "recover": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-13",
+          1
+        ],
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "recovery": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-27",
+          2
+        ]
+      ]
+    },
+    "redirected": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-14",
+          1
+        ]
+      ]
+    },
+    "reduce": {
+      "df": 5,
+      "postings": [
+        [
+          "doc-13",
+          1
+        ],
+        [
+          "doc-22",
+          1
+        ],
+        [
+          "doc-27",
+          1
+        ],
+        [
+          "doc-34",
+          1
+        ],
+        [
+          "doc-35",
+          2
+        ]
+      ]
+    },
+    "reducer": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "reference": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "reflect": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "refuse": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-18",
+          1
+        ]
+      ]
+    },
+    "registry": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ]
+      ]
+    },
+    "reject": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-25",
+          1
+        ]
+      ]
+    },
+    "related": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "remain": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-15",
+          1
+        ]
+      ]
+    },
+    "remote": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-01",
+          5
+        ],
+        [
+          "doc-09",
+          1
+        ],
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "remoteexception": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ]
+      ]
+    },
+    "removed": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "renew": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-26",
+          1
+        ]
+      ]
+    },
+    "repeat": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "replay": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-27",
+          1
+        ]
+      ]
+    },
+    "replica": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-14",
+          1
+        ],
+        [
+          "doc-15",
+          3
+        ],
+        [
+          "doc-16",
+          2
+        ]
+      ]
+    },
+    "replicate": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ]
+      ]
+    },
+    "replicated": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-15",
+          1
+        ],
+        [
+          "doc-17",
+          1
+        ]
+      ]
+    },
+    "replication": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-14",
+          2
+        ]
+      ]
+    },
+    "reply": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ],
+        [
+          "doc-28",
+          1
+        ],
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "request": {
+      "df": 9,
+      "postings": [
+        [
+          "doc-02",
+          2
+        ],
+        [
+          "doc-18",
+          1
+        ],
+        [
+          "doc-19",
+          2
+        ],
+        [
+          "doc-20",
+          1
+        ],
+        [
+          "doc-21",
+          1
+        ],
+        [
+          "doc-25",
+          1
+        ],
+        [
+          "doc-28",
+          2
+        ],
+        [
+          "doc-32",
+          1
+        ],
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "require": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-15",
+          1
+        ],
+        [
+          "doc-17",
+          1
+        ],
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "required": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-24",
+          1
+        ]
+      ]
+    },
+    "resolution": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "restart": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-27",
+          1
+        ]
+      ]
+    },
+    "result": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ],
+        [
+          "doc-28",
+          1
+        ],
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "retrie": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-28",
+          2
+        ],
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "retry": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-28",
+          2
+        ]
+      ]
+    },
+    "retrying": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "return": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-08",
+          1
+        ],
+        [
+          "doc-16",
+          1
+        ],
+        [
+          "doc-17",
+          1
+        ]
+      ]
+    },
+    "reusing": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ]
+      ]
+    },
+    "ricart": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "ring": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-08",
+          6
+        ],
+        [
+          "doc-23",
+          2
+        ]
+      ]
+    },
+    "rmi": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ]
+      ]
+    },
+    "robin": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-19",
+          3
+        ],
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "robust": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-24",
+          1
+        ]
+      ]
+    },
+    "roll": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-27",
+          1
+        ]
+      ]
+    },
+    "round": {
+      "df": 6,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ],
+        [
+          "doc-06",
+          1
+        ],
+        [
+          "doc-19",
+          3
+        ],
+        [
+          "doc-20",
+          1
+        ],
+        [
+          "doc-24",
+          1
+        ],
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "route": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "routing": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "row": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "rpc": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "rule": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "run": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "running": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-31",
+          1
+        ]
+      ]
+    },
+    "runs": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "safe": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-28",
+          1
+        ]
+      ]
+    },
+    "save": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-27",
+          1
+        ]
+      ]
+    },
+    "scatter": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "scheduler": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "scheduling": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ],
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "second": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "section": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "see": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "seen": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-08",
+          1
+        ]
+      ]
+    },
+    "segment": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-23",
+          1
+        ]
+      ]
+    },
+    "semantic": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-37",
+          2
+        ]
+      ]
+    },
+    "send": {
+      "df": 9,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ],
+        [
+          "doc-03",
+          1
+        ],
+        [
+          "doc-06",
+          1
+        ],
+        [
+          "doc-07",
+          2
+        ],
+        [
+          "doc-08",
+          1
+        ],
+        [
+          "doc-14",
+          1
+        ],
+        [
+          "doc-19",
+          1
+        ],
+        [
+          "doc-21",
+          1
+        ],
+        [
+          "doc-31",
+          1
+        ]
+      ]
+    },
+    "sender": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-03",
+          1
+        ],
+        [
+          "doc-10",
+          1
+        ]
+      ]
+    },
+    "sending": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "serve": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-26",
+          1
+        ]
+      ]
+    },
+    "served": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-14",
+          1
+        ],
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "server": {
+      "df": 7,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ],
+        [
+          "doc-19",
+          3
+        ],
+        [
+          "doc-20",
+          3
+        ],
+        [
+          "doc-21",
+          3
+        ],
+        [
+          "doc-23",
+          3
+        ],
+        [
+          "doc-28",
+          1
+        ],
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "service": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-39",
+          2
+        ]
+      ]
+    },
+    "set": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-10",
+          1
+        ]
+      ]
+    },
+    "sets": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-03",
+          1
+        ]
+      ]
+    },
+    "several": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ]
+      ]
+    },
+    "shard": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-33",
+          3
+        ]
+      ]
+    },
+    "sharding": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-33",
+          2
+        ]
+      ]
+    },
+    "share": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "shared": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "short": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ],
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "should": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ],
+        [
+          "doc-21",
+          1
+        ]
+      ]
+    },
+    "show": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-10",
+          1
+        ]
+      ]
+    },
+    "shuffled": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "side": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-25",
+          1
+        ]
+      ]
+    },
+    "signal": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-29",
+          1
+        ]
+      ]
+    },
+    "signature": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "simple": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-19",
+          1
+        ]
+      ]
+    },
+    "single": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-17",
+          1
+        ],
+        [
+          "doc-24",
+          1
+        ],
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "size": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-08",
+          1
+        ],
+        [
+          "doc-24",
+          1
+        ]
+      ]
+    },
+    "slightly": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ]
+      ]
+    },
+    "slow": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ],
+        [
+          "doc-20",
+          1
+        ],
+        [
+          "doc-38",
+          2
+        ]
+      ]
+    },
+    "slower": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "slowest": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-19",
+          1
+        ],
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "small": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-10",
+          1
+        ],
+        [
+          "doc-15",
+          2
+        ]
+      ]
+    },
+    "smaller": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-03",
+          2
+        ]
+      ]
+    },
+    "smooth": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "snapshot": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-31",
+          3
+        ]
+      ]
+    },
+    "some": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ],
+        [
+          "doc-18",
+          1
+        ]
+      ]
+    },
+    "source": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-06",
+          1
+        ]
+      ]
+    },
+    "span": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "speculative": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "speed": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ]
+      ]
+    },
+    "speedup": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "spent": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "split": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ],
+        [
+          "doc-25",
+          3
+        ]
+      ]
+    },
+    "spread": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-20",
+          1
+        ],
+        [
+          "doc-23",
+          1
+        ],
+        [
+          "doc-24",
+          1
+        ],
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "stable": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-31",
+          1
+        ]
+      ]
+    },
+    "stage": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-40",
+          4
+        ]
+      ]
+    },
+    "stale": {
+      "df": 6,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ],
+        [
+          "doc-16",
+          1
+        ],
+        [
+          "doc-18",
+          1
+        ],
+        [
+          "doc-21",
+          1
+        ],
+        [
+          "doc-25",
+          1
+        ],
+        [
+          "doc-34",
+          2
+        ]
+      ]
+    },
+    "stall": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-10",
+          1
+        ]
+      ]
+    },
+    "start": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-07",
+          2
+        ],
+        [
+          "doc-38",
+          1
+        ],
+        [
+          "doc-39",
+          1
+        ],
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "started": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-08",
+          1
+        ]
+      ]
+    },
+    "starting": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-27",
+          1
+        ]
+      ]
+    },
+    "state": {
+      "df": 7,
+      "postings": [
+        [
+          "doc-17",
+          1
+        ],
+        [
+          "doc-18",
+          1
+        ],
+        [
+          "doc-24",
+          1
+        ],
+        [
+          "doc-25",
+          1
+        ],
+        [
+          "doc-27",
+          2
+        ],
+        [
+          "doc-31",
+          1
+        ],
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "status": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "step": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "still": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-06",
+          1
+        ],
+        [
+          "doc-10",
+          1
+        ]
+      ]
+    },
+    "storage": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-25",
+          1
+        ]
+      ]
+    },
+    "store": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-15",
+          1
+        ],
+        [
+          "doc-33",
+          1
+        ],
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "stored": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ],
+        [
+          "doc-23",
+          1
+        ]
+      ]
+    },
+    "storing": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-29",
+          1
+        ]
+      ]
+    },
+    "straggler": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-38",
+          4
+        ]
+      ]
+    },
+    "strong": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-14",
+          1
+        ],
+        [
+          "doc-17",
+          3
+        ],
+        [
+          "doc-19",
+          1
+        ]
+      ]
+    },
+    "stub": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ]
+      ]
+    },
+    "subtask": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-40",
+          2
+        ]
+      ]
+    },
+    "succeeded": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-28",
+          1
+        ]
+      ]
+    },
+    "successor": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-08",
+          1
+        ]
+      ]
+    },
+    "suit": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "sum": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "summed": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-36",
+          1
+        ]
+      ]
+    },
+    "suspect": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-07",
+          1
+        ]
+      ]
+    },
+    "suspicion": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ]
+      ]
+    },
+    "synchronize": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-06",
+          1
+        ]
+      ]
+    },
+    "system": {
+      "df": 7,
+      "postings": [
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-09",
+          1
+        ],
+        [
+          "doc-11",
+          2
+        ],
+        [
+          "doc-15",
+          2
+        ],
+        [
+          "doc-17",
+          1
+        ],
+        [
+          "doc-18",
+          3
+        ],
+        [
+          "doc-31",
+          1
+        ]
+      ]
+    },
+    "table": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-23",
+          1
+        ]
+      ]
+    },
+    "task": {
+      "df": 5,
+      "postings": [
+        [
+          "doc-02",
+          2
+        ],
+        [
+          "doc-19",
+          1
+        ],
+        [
+          "doc-22",
+          3
+        ],
+        [
+          "doc-38",
+          2
+        ],
+        [
+          "doc-40",
+          2
+        ]
+      ]
+    },
+    "tell": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-04",
+          1
+        ]
+      ]
+    },
+    "term": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ]
+      ]
+    },
+    "theorem": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-18",
+          3
+        ]
+      ]
+    },
+    "thread": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-02",
+          5
+        ],
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "three": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-13",
+          1
+        ],
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "threshold": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-10",
+          2
+        ]
+      ]
+    },
+    "through": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-24",
+          1
+        ]
+      ]
+    },
+    "time": {
+      "df": 10,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ],
+        [
+          "doc-06",
+          4
+        ],
+        [
+          "doc-10",
+          1
+        ],
+        [
+          "doc-20",
+          1
+        ],
+        [
+          "doc-26",
+          1
+        ],
+        [
+          "doc-27",
+          1
+        ],
+        [
+          "doc-32",
+          1
+        ],
+        [
+          "doc-34",
+          1
+        ],
+        [
+          "doc-36",
+          1
+        ],
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "timeout": {
+      "df": 5,
+      "postings": [
+        [
+          "doc-09",
+          2
+        ],
+        [
+          "doc-10",
+          1
+        ],
+        [
+          "doc-11",
+          1
+        ],
+        [
+          "doc-12",
+          1
+        ],
+        [
+          "doc-28",
+          1
+        ]
+      ]
+    },
+    "timestamp": {
+      "df": 5,
+      "postings": [
+        [
+          "doc-03",
+          2
+        ],
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-05",
+          1
+        ],
+        [
+          "doc-32",
+          1
+        ],
+        [
+          "doc-39",
+          2
+        ]
+      ]
+    },
+    "together": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-10",
+          1
+        ],
+        [
+          "doc-33",
+          1
+        ]
+      ]
+    },
+    "token": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-08",
+          3
+        ],
+        [
+          "doc-25",
+          1
+        ],
+        [
+          "doc-32",
+          3
+        ]
+      ]
+    },
+    "tolerance": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-18",
+          1
+        ]
+      ]
+    },
+    "tolerant": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "tolerate": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-15",
+          1
+        ]
+      ]
+    },
+    "tolerating": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "too": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ]
+      ]
+    },
+    "trace": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "tracing": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-39",
+          2
+        ]
+      ]
+    },
+    "track": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "trade": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ]
+      ]
+    },
+    "transaction": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-13",
+          1
+        ]
+      ]
+    },
+    "transit": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-31",
+          1
+        ]
+      ]
+    },
+    "travel": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-08",
+          1
+        ]
+      ]
+    },
+    "tree": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "trigger": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-09",
+          1
+        ]
+      ]
+    },
+    "trip": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ],
+        [
+          "doc-06",
+          1
+        ]
+      ]
+    },
+    "true": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-06",
+          1
+        ]
+      ]
+    },
+    "twice": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-28",
+          1
+        ],
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "understand": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-12",
+          1
+        ]
+      ]
+    },
+    "unless": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "unmarshal": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ]
+      ]
+    },
+    "until": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-10",
+          1
+        ],
+        [
+          "doc-13",
+          1
+        ],
+        [
+          "doc-29",
+          1
+        ],
+        [
+          "doc-37",
+          1
+        ]
+      ]
+    },
+    "update": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-04",
+          1
+        ],
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "updated": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "using": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-05",
+          1
+        ],
+        [
+          "doc-32",
+          1
+        ]
+      ]
+    },
+    "usually": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-17",
+          1
+        ],
+        [
+          "doc-20",
+          1
+        ]
+      ]
+    },
+    "value": {
+      "df": 6,
+      "postings": [
+        [
+          "doc-11",
+          1
+        ],
+        [
+          "doc-17",
+          1
+        ],
+        [
+          "doc-22",
+          1
+        ],
+        [
+          "doc-23",
+          1
+        ],
+        [
+          "doc-34",
+          1
+        ],
+        [
+          "doc-35",
+          1
+        ]
+      ]
+    },
+    "vector": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-04",
+          4
+        ]
+      ]
+    },
+    "very": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-04",
+          1
+        ]
+      ]
+    },
+    "virtual": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-23",
+          1
+        ]
+      ]
+    },
+    "vote": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-13",
+          2
+        ]
+      ]
+    },
+    "voting": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-30",
+          1
+        ]
+      ]
+    },
+    "wait": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-26",
+          1
+        ]
+      ]
+    },
+    "wall": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-39",
+          1
+        ]
+      ]
+    },
+    "ways": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-01",
+          1
+        ]
+      ]
+    },
+    "weak": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-19",
+          1
+        ]
+      ]
+    },
+    "weight": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          4
+        ]
+      ]
+    },
+    "weighted": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-20",
+          3
+        ]
+      ]
+    },
+    "whether": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-04",
+          2
+        ]
+      ]
+    },
+    "whichever": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "whole": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-38",
+          1
+        ]
+      ]
+    },
+    "window": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "wins": {
+      "df": 2,
+      "postings": [
+        [
+          "doc-08",
+          1
+        ],
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "word": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-22",
+          1
+        ]
+      ]
+    },
+    "work": {
+      "df": 3,
+      "postings": [
+        [
+          "doc-02",
+          1
+        ],
+        [
+          "doc-27",
+          1
+        ],
+        [
+          "doc-29",
+          1
+        ]
+      ]
+    },
+    "worker": {
+      "df": 4,
+      "postings": [
+        [
+          "doc-02",
+          2
+        ],
+        [
+          "doc-20",
+          1
+        ],
+        [
+          "doc-36",
+          4
+        ],
+        [
+          "doc-40",
+          1
+        ]
+      ]
+    },
+    "write": {
+      "df": 6,
+      "postings": [
+        [
+          "doc-14",
+          2
+        ],
+        [
+          "doc-15",
+          3
+        ],
+        [
+          "doc-16",
+          3
+        ],
+        [
+          "doc-17",
+          2
+        ],
+        [
+          "doc-25",
+          1
+        ],
+        [
+          "doc-34",
+          1
+        ]
+      ]
+    },
+    "writer": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-16",
+          1
+        ]
+      ]
+    },
+    "yes": {
+      "df": 1,
+      "postings": [
+        [
+          "doc-13",
+          1
+        ]
+      ]
+    }
+  },
+  "N": 40,
+  "builtAt": "2026-10-01T18:12:20+00:00",
+  "fingerprint": {
+    "documents": 40,
+    "sha256": "1db443684eb8cc37090ddd98a3c3b43b28b6ba307c6950e17ed1a8b1e8709830",
+    "scheme": "sha256 of 'docId:length\\n' per document in index.txt order"
+  },
+  "docLengths": {
+    "doc-01": 45,
+    "doc-02": 43,
+    "doc-03": 38,
+    "doc-04": 39,
+    "doc-05": 41,
+    "doc-06": 36,
+    "doc-07": 43,
+    "doc-08": 43,
+    "doc-09": 43,
+    "doc-10": 38,
+    "doc-11": 41,
+    "doc-12": 32,
+    "doc-13": 40,
+    "doc-14": 32,
+    "doc-15": 39,
+    "doc-16": 35,
+    "doc-17": 35,
+    "doc-18": 37,
+    "doc-19": 40,
+    "doc-20": 44,
+    "doc-21": 40,
+    "doc-22": 39,
+    "doc-23": 33,
+    "doc-24": 30,
+    "doc-25": 33,
+    "doc-26": 35,
+    "doc-27": 40,
+    "doc-28": 36,
+    "doc-29": 33,
+    "doc-30": 31,
+    "doc-31": 34,
+    "doc-32": 41,
+    "doc-33": 33,
+    "doc-34": 31,
+    "doc-35": 34,
+    "doc-36": 36,
+    "doc-37": 33,
+    "doc-38": 37,
+    "doc-39": 36,
+    "doc-40": 37
+  }
+}

@@ -86,6 +86,8 @@ public class ClusterConfig {
     private final long eventualLagMs;
     private final long antiEntropyMs;
     private final long berkeleyIntervalMs;
+    /** Python interpreter the control plane runs Exp 7 (MapReduce) with; see getPythonCommand(). */
+    private volatile String pythonCommand = DEFAULT_PYTHON_COMMAND;
 
     public ClusterConfig(Map<Integer, NodeConfig> nodes) {
         this(nodes, DEFAULT_SIMULATED_WORK_MS);
@@ -126,6 +128,17 @@ public class ClusterConfig {
     /** Interval of the leader's periodic Berkeley round (property "berkeleyIntervalMs", 0 disables). */
     public long getBerkeleyIntervalMs() {
         return berkeleyIntervalMs;
+    }
+
+    /** Default Python interpreter for Exp 7 (property "pythonCommand"). */
+    public static final String DEFAULT_PYTHON_COMMAND = "python";
+
+    /**
+     * Python interpreter the control plane starts mapreduce/exp7_mapreduce.py with (property
+     * "pythonCommand", overridable with -Dagentgrid.pythonCommand). It must have pyspark installed.
+     */
+    public String getPythonCommand() {
+        return pythonCommand;
     }
 
     /** Epoch of the membership read from cluster.properties. */
@@ -319,10 +332,15 @@ public class ClusterConfig {
 
         String work = System.getProperty("agentgrid.simulatedWorkMs",
                 props.getProperty("simulatedWorkMs", String.valueOf(DEFAULT_SIMULATED_WORK_MS)));
-        return new ClusterConfig(nodes, Long.parseLong(work.trim()),
+        ClusterConfig config = new ClusterConfig(nodes, Long.parseLong(work.trim()),
                 longProperty(props, "eventualLagMs", DEFAULT_EVENTUAL_LAG_MS),
                 longProperty(props, "blackboardAntiEntropyMs", DEFAULT_ANTI_ENTROPY_MS),
                 longProperty(props, "berkeleyIntervalMs", DEFAULT_BERKELEY_INTERVAL_MS));
+        String python = System.getProperty("agentgrid.pythonCommand", props.getProperty("pythonCommand"));
+        if (python != null && !python.isBlank()) {
+            config.pythonCommand = python.trim();
+        }
+        return config;
     }
 
     private static long longProperty(Properties props, String name, long fallback) {

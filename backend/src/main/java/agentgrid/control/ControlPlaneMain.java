@@ -86,6 +86,8 @@ public class ControlPlaneMain {
     private final JobDirectory jobDirectory;
     private final BlackboardApi blackboardApi;
     private final MembershipManager membershipManager;
+    private final IndexStore indexStore;
+    private final MapReduceApi mapReduceApi;
     private final HttpServer server;
     private final Path frontendDir;
 
@@ -100,6 +102,15 @@ public class ControlPlaneMain {
         this.blackboardApi = new BlackboardApi(config, monitor);
         this.monitor.setJobDirectory(jobDirectory);
         this.membershipManager = new MembershipManager(config, processManager, monitor, eventLog, jobDirectory);
+
+        // Exp 7: the MapReduce index (loaded now if mapreduce/out/inverted_index.json exists).
+        Path repoRoot = MapReduceApi.resolveRepoRoot();
+        this.indexStore = new IndexStore(MapReduceApi.indexFile(repoRoot), corpus());
+        Map<String, Object> index = indexStore.reload();
+        System.out.println("[ControlPlaneMain] MapReduce index " + indexStore.getFile() + ": "
+                + (Boolean.TRUE.equals(index.get("usable")) ? index.get("terms") + " terms, built " + index.get("builtAt")
+                : "not usable (" + index.get("reason") + ")"));
+        this.mapReduceApi = new MapReduceApi(config, eventLog, indexStore, repoRoot);
 
         this.frontendDir = resolveFrontendDirectory();
 
@@ -173,6 +184,7 @@ public class ControlPlaneMain {
         server.createContext("/api/clock/auto", this::handleClockAuto);
         server.createContext("/api/blackboard", this::handleBlackboard);
         server.createContext("/api/blackboard/write", this::handleBlackboardWrite);
+        server.createContext("/api/mapreduce", this::handleMapReduce);
         server.createContext("/", this::handleStatic);
     }
 
@@ -191,7 +203,8 @@ public class ControlPlaneMain {
                 Map.of("id", "exp3", "title", "Clocks"),
                 Map.of("id", "exp4", "title", "Election"),
                 Map.of("id", "exp5", "title", "Blackboard"),
-                Map.of("id", "exp6", "title", "Load Balancing")
+                Map.of("id", "exp6", "title", "Load Balancing"),
+                Map.of("id", "exp7", "title", "MapReduce")
         );
         sendJsonResponse(exchange, 200, modules);
     }
@@ -861,8 +874,119 @@ public class ControlPlaneMain {
             sendError(exchange, 400, "Field 'consistency' must be \"STRONG\" or \"EVENTUAL\" (default EVENTUAL)");
             return;
         }
+        Object r = req.get("retrieval");
+        String retrieval = r == null ? agentgrid.orchestrator.RetrievalPlan.SCAN : String.valueOf(r);
+        if (!retrieval.equals(agentgrid.orchestrator.RetrievalPlan.SCAN)
+                && !retrieval.equals(agentgrid.orchestrator.RetrievalPlan.INDEX)) {
+            sendError(exchange, 400, "Field 'retrieval' must be \"SCAN\" or \"INDEX\" (default SCAN)");
+            return;
+        }
         try {
-            sendJsonResponse(exchange, 200, jobDirectory.submit(query, policy.name(), consistency));
+            agentgrid.orchestrator.RetrievalPlan plan = agentgrid.orchestrator.RetrievalPlan.scan();
+            if (retrieval.equals(agentgrid.orchestrator.RetrievalPlan.INDEX)) {
+                IndexStore.Lookup lookup = indexStore.lookup(query);   // 409 without a usable index
+                plan = agentgrid.orchestrator.RetrievalPlan.index(lookup.getDocIds(), lookup.getBuiltAt(), lookup.getTerms());
+            }
+            sendJsonResponse(exchange, 200, jobDirectory.submit(query, policy.name(), consistency, plan));
+        } catch (JobDirectory.ApiException e) {
+            sendError(exchange, e.getStatus(), e.getMessage());
+        }
+    }
+
+    // =========================================================================
+    // MAPREDUCE (Exp 7)
+    // =========================================================================
+
+    /**
+     * POST /api/mapreduce/run {"job": "index"|"wordcount", "partitions": 4, "compare": false};
+     * GET /api/mapreduce/last, /api/mapreduce/status, /api/mapreduce/index;
+     * POST /api/mapreduce/index/test-hook {"corruptFingerprint": bool} (only with -Dagentgrid.testHooks=true).
+     */
+    private void handleMapReduce(HttpExchange exchange) throws IOException {
+        String path = exchange.getRequestURI().getPath();
+        String method = exchange.getRequestMethod();
+        try {
+            switch (path) {
+                case "/api/mapreduce/run" -> {
+                    if (!method.equalsIgnoreCase("POST")) {
+                        sendMethodNotAllowed(exchange);
+                        return;
+                    }
+                    if (!validatePostHeaders(exchange)) return;
+                    Map<String, Object> req = readJsonBody(exchange);
+                    if (req == null) return;
+                    String job = req.get("job") == null ? "index" : String.valueOf(req.get("job"));
+                    if (!job.equals("index") && !job.equals("wordcount")) {
+                        sendError(exchange, 400, "Field 'job' must be \"index\" or \"wordcount\" (default index)");
+                        return;
+                    }
+                    Object p = req.get("partitions");
+                    if (p != null && !(p instanceof Long)) {
+                        sendError(exchange, 400, "Field 'partitions' must be an integer from 1 to 16 (default 4)");
+                        return;
+                    }
+                    int partitions = p == null ? 4 : ((Long) p).intValue();
+                    if (partitions < 1 || partitions > 16) {
+                        sendError(exchange, 400, "Field 'partitions' must be an integer from 1 to 16 (default 4)");
+                        return;
+                    }
+                    Object c = req.get("compare");
+                    if (c != null && !(c instanceof Boolean)) {
+                        sendError(exchange, 400, "Field 'compare' must be true or false (default false)");
+                        return;
+                    }
+                    sendJsonResponse(exchange, 200, mapReduceApi.run(job, partitions, Boolean.TRUE.equals(c)));
+                }
+                case "/api/mapreduce/last" -> {
+                    if (!method.equalsIgnoreCase("GET")) {
+                        sendMethodNotAllowed(exchange);
+                        return;
+                    }
+                    Map<String, Object> last = mapReduceApi.last();
+                    if (last == null) {
+                        sendError(exchange, 404, "No MapReduce run has completed since the control plane started");
+                    } else {
+                        sendJsonResponse(exchange, 200, last);
+                    }
+                }
+                case "/api/mapreduce/status" -> {
+                    if (!method.equalsIgnoreCase("GET")) {
+                        sendMethodNotAllowed(exchange);
+                        return;
+                    }
+                    sendJsonResponse(exchange, 200, mapReduceApi.status());
+                }
+                case "/api/mapreduce/index" -> {
+                    if (!method.equalsIgnoreCase("GET")) {
+                        sendMethodNotAllowed(exchange);
+                        return;
+                    }
+                    sendJsonResponse(exchange, 200, indexStore.view());
+                }
+                case "/api/mapreduce/index/test-hook" -> {
+                    if (!Boolean.getBoolean("agentgrid.testHooks")) {
+                        sendError(exchange, 404, "Test hooks are disabled (start the control plane with -Dagentgrid.testHooks=true)");
+                        return;
+                    }
+                    if (!method.equalsIgnoreCase("POST")) {
+                        sendMethodNotAllowed(exchange);
+                        return;
+                    }
+                    if (!validatePostHeaders(exchange)) return;
+                    Map<String, Object> req = readJsonBody(exchange);
+                    if (req == null) return;
+                    if (!(req.get("corruptFingerprint") instanceof Boolean)) {
+                        sendError(exchange, 400, "Field 'corruptFingerprint' must be true or false");
+                        return;
+                    }
+                    boolean corrupt = (Boolean) req.get("corruptFingerprint");
+                    indexStore.setCorruptExpectation(corrupt);
+                    eventLog.record("MAPREDUCE_TEST_HOOK", 0, "Test hook: the control plane's expected corpus fingerprint is "
+                            + (corrupt ? "corrupted (the index reads as stale)" : "restored"), System.currentTimeMillis());
+                    sendJsonResponse(exchange, 200, indexStore.view());
+                }
+                default -> sendError(exchange, 404, "Unknown mapreduce endpoint: " + path);
+            }
         } catch (JobDirectory.ApiException e) {
             sendError(exchange, e.getStatus(), e.getMessage());
         }

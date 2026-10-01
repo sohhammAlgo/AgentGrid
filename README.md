@@ -285,6 +285,11 @@ binds these services in its own RMI registry:
 - `berkeleyIntervalMs=30000`: how often the leader runs a Berkeley round (0 disables the
   periodic round).
 
+- `pythonCommand=python`: the Python interpreter the control plane runs Exp 7 (MapReduce) with.
+  It needs pyspark (`mapreduce/requirements.txt`) and Java 17+. On this machine `python` is a
+  Python 3.14 without pyspark, so start the control plane with
+  `-Dagentgrid.pythonCommand=D:\anaconda3\python.exe` (or install pyspark for `python`).
+
 Each of these can also be overridden with `-Dagentgrid.<name>=<value>`.
 
 The document corpus that jobs search is `backend/src/main/resources/corpus/` (40 short
@@ -331,7 +336,7 @@ malformed or invalid input returns 400. Errors are `{"error": "...", "status": N
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| GET | `/api/modules` | | Dashboard modules: exp1–exp6 |
+| GET | `/api/modules` | | Dashboard modules: exp1–exp7 |
 | GET | `/api/cluster` | | Per current member: `id, port, up, poolSize, weight, epoch` (the membership epoch it reports), `queueDepth, lamport, clockOffsetMs, bindings, leaderView, isLeader` |
 | GET | `/api/cluster?view=membership` | | `{epoch, size, quorum, members: [{id, port, poolSize, weight}], nextId, minMembers, maxMembers, changeInProgress, processes, nodes}` (`nodes` = the array above) |
 | POST | `/api/cluster/nodes` | `{"poolSize": 4, "weight": 4}` (both optional) | Adds a node (see Elastic membership): `{node, port, poolSize, weight, readyMs, snapshotSource, membership, pushed, clockRound, totalMs}`; 409 at 9 members or during another change; 500 with the reason if the node could not be started, came up or pulled its snapshot (membership unchanged) |
@@ -354,9 +359,14 @@ malformed or invalid input returns 400. Errors are `{"error": "...", "status": N
 | GET | `/api/election` | | `algorithm, views, agreed, leaderId, backupId, lastEpisode {startTrueMs, endTrueMs, convergenceMs, messages, byKind, leaderId, initiators, table}` |
 | POST | `/api/election/algorithm` | `{"name": "BULLY"}` or `"RING"` | Switches the algorithm on all UP nodes |
 | POST | `/api/election/start` | `{"node": 1}` | Starts an election on one node |
-| POST | `/api/jobs` | `{"query": "...", "policy": "ROUND_ROBIN", "consistency": "EVENTUAL"}` (policy `LEAST_LOADED` / `WEIGHTED`; consistency `STRONG`, default `EVENTUAL`) | `{jobId, leader, consistency, status}`; 503 if no leader is agreed |
-| GET | `/api/jobs` | | Recent jobs: `jobId, query, policy, status, leaderNode, makespanMs, subtasks, completedSubtasks, ...` |
-| GET | `/api/jobs/{id}` | | The task graph: status (`QUEUED, RUNNING, COMPLETE, FAILED, ORPHANED`), answer, per-node subtask counts and peak queue depth, and every stage's subtasks with node, status and dispatch / result / completion Lamport times |
+| POST | `/api/jobs` | `{"query": "...", "policy": "ROUND_ROBIN", "consistency": "EVENTUAL", "retrieval": "SCAN"}` (policy `LEAST_LOADED` / `WEIGHTED`; consistency `STRONG`, default `EVENTUAL`; retrieval `INDEX`, default `SCAN`) | `{jobId, leader, consistency, retrieval, status}`; 503 if no leader is agreed; for `INDEX`, 409 if there is no MapReduce index ("run MapReduce first") or it is stale ("re-run MapReduce") |
+| GET | `/api/jobs` | | Recent jobs: `jobId, query, policy, status, leaderNode, makespanMs, subtasks, completedSubtasks, retrieval {mode, docsTotal, docsTouched, retrieveSubtasks, retrievalMs}, ...` |
+| GET | `/api/jobs/{id}` | | The task graph: status (`QUEUED, RUNNING, COMPLETE, FAILED, ORPHANED`), answer, per-node subtask counts and peak queue depth, `retrieval`, and every stage's subtasks with node, status and dispatch / result / completion Lamport times |
+| POST | `/api/mapreduce/run` | `{"job": "index", "partitions": 4, "compare": false}` (job `wordcount`; partitions 1–16) | Runs `mapreduce/exp7_mapreduce.py --json` (see MapReduce below) and returns its JSON: `job, partitions, stages {mapPairs, pairsAfterCombine, reduceKeys, shuffleRecordsWithCombiner, shuffleRecordsWithout, ...}, timings {local4Ms, local1Ms, speedup}, topTerms, topDocsForQuery, verified, checks, docCount, builtAt, fingerprint`, plus `wallMs` and the reloaded `index`. 409 while a run is in progress; 503 with the reason (missing interpreter, missing pyspark, 300 s timeout, non-zero exit; with the last 20 stderr lines) |
+| GET | `/api/mapreduce/last` | | The last successful run's result; 404 if none since the control plane started |
+| GET | `/api/mapreduce/status` | | `{running, current {job, partitions, compare, elapsedMs}, hasLast, lastFailure, pythonCommand, script, timeoutSeconds, index}` |
+| GET | `/api/mapreduce/index` | | `{available, fingerprintOk, stale, usable, reason, terms, postings, documents, builtAt, corpusDocuments, fingerprint, corpusFingerprint, file}` |
+| POST | `/api/mapreduce/index/test-hook` | `{"corruptFingerprint": true}` | Test only (404 unless the control plane runs with `-Dagentgrid.testHooks=true`): replaces the expected corpus fingerprint so the index reads as stale; `false` restores it |
 
 ### Jobs
 A job runs on the orchestrator of the elected leader: RETRIEVE (keyword match, fanned out
@@ -371,6 +381,48 @@ Each worker that runs a SUMMARIZE subtask posts its finding to its own blackboar
 `job/<jobId>/answer`, under the job's `consistency`. The job view shows every finding as stored
 or not stored; a refused or failed write never fails the job. The leader records one
 `BLACKBOARD_JOB_FINDINGS` event per job (no event per write).
+
+### MapReduce (Exp 7) and INDEX retrieval
+The dashboard tab "MapReduce" (or `POST /api/mapreduce/run`) runs `mapreduce/exp7_mapreduce.py --json`
+on the control-plane host with `pythonCommand`, in the repository root, with a 300 s limit. **Spark runs
+in local mode on the control-plane machine, not on the cluster nodes.**
+- `--json` runs one job (`index` or `wordcount`) once at `local[4]` and, with `compare`, once more at
+  `local[1]`. The script prints exactly one JSON line on stdout; everything else goes to stderr.
+  Every Spark result is checked against plain Python (`verified`). Files in `mapreduce/out/` are
+  written only when the result is verified.
+- One run at a time. The events are `MAPREDUCE_STARTED`, `MAPREDUCE_COMPLETE` (job, ms, verified) and
+  `MAPREDUCE_FAILED` (reason).
+- An index run took 35 s from the command line and 54 s through the control plane while the 5 nodes
+  were running (on Windows, PySpark starts a Python worker per task; most of the time is Spark start-up).
+
+`mapreduce/out/inverted_index.json` holds the postings (`index`: term -> `{df, postings [[docId, tf], ...]}`),
+`N`, every document's length (`docLengths`), `builtAt`, and a corpus `fingerprint`: the document count
+and a SHA-256 over `docId:length\n` for every document in `index.txt` order. The control plane's
+`IndexStore` loads the file at start and after every successful run, and computes the same fingerprint
+over its own corpus (the one on the classpath, which the nodes use).
+
+**Retrieval option.** `POST /api/jobs` takes `"retrieval": "SCAN"` (default, unchanged) or `"INDEX"`:
+- SCAN dispatches all 20 RETRIEVE chunks and each worker reads every document in its chunk.
+- INDEX tokenizes the query with the backend's own `Corpus.terms`, looks the terms up in the index,
+  and restricts RETRIEVE to the documents that contain at least one query term. Only the chunks that
+  hold such a document are dispatched, and the payload names the documents the worker reads.
+- RANK, SUMMARIZE, SYNTHESIZE, the findings on the blackboard, the JobDirectory and failover are the
+  same in both modes. RANK scores the same candidate set with the same idf, so the ranking and the
+  answer are identical. For the sample question both modes ranked
+  doc-09, doc-07, doc-26, doc-08, doc-30 first and cited the same documents (MapReduceVerifier MR4).
+- Every job records `retrieval {mode, docsTotal, docsTouched, retrieveSubtasks, retrievalMs}`. These
+  appear in the Job Console summary ("docs touched X/Y") and in the `JOB_SUBMITTED` / `JOB_COMPLETED`
+  event text. For the sample question: SCAN 40/40 documents and 20 RETRIEVE subtasks; INDEX 22/40 and 16.
+
+**Stale-index guard.** INDEX is refused with 409 when there is no index ("run MapReduce first") or
+when the index's fingerprint differs from the control plane's corpus ("the MapReduce index is stale,
+re-run MapReduce"). The Job Console's INDEX option is disabled, with that reason as a hint, until
+`/api/mapreduce/index` reports `usable`. It updates on every `MAPREDUCE_*` event and every 10 s.
+
+**Limitation.** With 40 short documents the saving shows in documents touched (22 instead of 40) and
+RETRIEVE subtasks (16 instead of 20), not in time: the job's makespan is dominated by the simulated
+150 ms per subtask and the stage barriers. The index is built on one host and is not partitioned
+across the nodes.
 
 ### Replicated blackboard (Exp 5)
 Every node keeps a replica of `{key, value, timestamp, writerNodeId, version}` records. The
@@ -478,6 +530,7 @@ java -cp build/classes agentgrid.control.ElectionVerifier   # Exp 4: election (V
 java -cp build/classes agentgrid.control.JobVerifier        # Phase 4: jobs and routing (J1-J5)
 java -cp build/classes agentgrid.control.BlackboardVerifier # Phase 5: replicated blackboard (B1-B12)
 java -cp build/classes agentgrid.control.MembershipVerifier # elastic membership: add / remove nodes (M1-M13)
+java -cp build/classes agentgrid.control.MapReduceVerifier  # Exp 7: MapReduce runs and INDEX retrieval (MR1-MR6)
 java -cp build/classes agentgrid.control.RestartStress      # restart all 5 nodes at once, 10 cycles
 java -cp build/classes agentgrid.control.JobFlakeCheck      # 30 jobs, no false ORPHANED
 java -cp build/classes agentgrid.control.JobFlakeCheck orphan 5  # kill the leader mid-job: time to JOB_ORPHANED
@@ -492,11 +545,18 @@ The verifiers other than MembershipVerifier expect the default 5 members (ids 1-
 against a fresh control plane. MembershipVerifier also needs a fresh one, and leaves a 5-member
 cluster whose ids are not 1-5 (it removes nodes 4 and 5 to test the minimum-size rule, and ids
 are never reused).
+MapReduceVerifier needs a control plane whose `pythonCommand` has pyspark. MR3 runs only when the control
+plane was started without `mapreduce/out/inverted_index.json`, and MR5 only with `-Dagentgrid.testHooks=true`;
+otherwise they are reported as SKIP with the reason:
+```bash
+java "-Dagentgrid.pythonCommand=D:\anaconda3\python.exe" -Dagentgrid.testHooks=true -cp build/classes agentgrid.control.ControlPlaneMain
+```
 
 **Not yet tested:**
 - The shutdown hook when the control plane's console window is closed. Ctrl+C stops all 5 nodes; a forced kill of the control plane leaves them running (stop them with `stop-cluster.ps1`).
 - Linux, and `build.sh` / `build.bat`. Everything here was built with `build.ps1` and run on Windows.
-- The dashboard has not been opened in a browser (including the Add node / Remove controls and the membership-driven dropdowns).
+- The dashboard has not been opened in a browser (including the Add node / Remove controls, the membership-driven dropdowns, the MapReduce tab and the Job Console's retrieval select).
+- The 300 s MapReduce timeout path (only the missing-interpreter and missing-pyspark 503s were run).
 
 `agentgrid.node.ElectionBaselineProbe`, `agentgrid.orchestrator.BalancerBaselineProbe` and
 `agentgrid.node.BlackboardBaselineProbe` produce the "before" numbers in [FIXES.md](FIXES.md).

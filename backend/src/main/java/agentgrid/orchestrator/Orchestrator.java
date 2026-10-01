@@ -154,9 +154,15 @@ public final class Orchestrator extends UnicastRemoteObject implements Orchestra
                 f.put("status", status.name());
                 f.put("makespanMs", job.makespanMs());
                 f.put("policy", job.getPolicy());
+                Map<String, Object> retrieval = job.retrievalMap();
+                f.put("retrieval", retrieval.get("mode"));
+                f.put("docsTotal", retrieval.get("docsTotal"));
+                f.put("docsTouched", retrieval.get("docsTouched"));
+                f.put("retrieveSubtasks", retrieval.get("retrieveSubtasks"));
+                f.put("retrievalMs", retrieval.get("retrievalMs"));
                 if (status == JobStatus.COMPLETE) {
                     events.record("JOB_COMPLETED", job.getJobId() + " COMPLETE in " + job.makespanMs()
-                            + " ms (" + job.getPolicy() + ")", f);
+                            + " ms (" + job.getPolicy() + ") [" + job.retrievalText() + "]", f);
                 } else if (status == JobStatus.FAILED) {
                     events.record("JOB_FAILED", job.getJobId() + " FAILED: " + job.getError(), f);
                 }
@@ -174,6 +180,12 @@ public final class Orchestrator extends UnicastRemoteObject implements Orchestra
 
     @Override
     public String submit(String query, String policy, String consistency) throws RemoteException {
+        return submit(query, policy, consistency, RetrievalPlan.scan());
+    }
+
+    @Override
+    public String submit(String query, String policy, String consistency, RetrievalPlan retrieval) throws RemoteException {
+        RetrievalPlan plan = retrieval == null ? RetrievalPlan.scan() : retrieval;
         if (!active) {
             throw new RemoteException("node " + nodeId + " is not the leader; its orchestrator is inactive");
         }
@@ -186,7 +198,7 @@ public final class Orchestrator extends UnicastRemoteObject implements Orchestra
             throw new RemoteException("unknown consistency: " + consistency);
         }
         String jobId = "job-" + nodeId + "-" + incarnation + "-" + sequence.incrementAndGet();
-        Job job = new Job(jobId, query, p.name(), mode, nodeId, System.currentTimeMillis());
+        Job job = new Job(jobId, query, p.name(), mode, nodeId, System.currentTimeMillis(), plan);
         synchronized (jobs) {
             jobs.put(jobId, job);
             trim();
@@ -197,7 +209,12 @@ public final class Orchestrator extends UnicastRemoteObject implements Orchestra
         f.put("policy", p.name());
         f.put("consistency", mode);
         f.put("query", shown);
-        events.record("JOB_SUBMITTED", jobId + " submitted (" + p.name() + ", " + mode + "): " + shown, f);
+        f.put("retrieval", plan.getMode());
+        if (plan.isIndex()) {
+            f.put("indexDocs", plan.getDocIds().size());
+        }
+        events.record("JOB_SUBMITTED", jobId + " submitted (" + p.name() + ", " + mode + "): " + shown
+                + " [" + job.retrievalText() + "]", f);
         queue.add(job);
         return jobId;
     }

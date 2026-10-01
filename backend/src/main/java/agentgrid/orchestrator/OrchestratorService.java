@@ -16,6 +16,12 @@ public interface OrchestratorService extends Remote {
      */
     String submit(String query, String policy, String consistency) throws RemoteException;
 
+    /**
+     * Like submit(query, policy, consistency), with the RETRIEVE plan: SCAN reads every
+     * document, INDEX only the documents the MapReduce index lists for the query's terms.
+     */
+    String submit(String query, String policy, String consistency, RetrievalPlan retrieval) throws RemoteException;
+
     /** A snapshot of the job, or null if this orchestrator does not know it. */
     Job getJob(String jobId) throws RemoteException;
 

@@ -1,0 +1,4 @@
+# Exp 7: MapReduce with Apache Spark (local mode).
+# pyspark 4.x needs Java 17+ (3.5.x would need Java 8/11/17; this machine has JDK 23).
+# pyspark 4.2.0 requires Python >= 3.10 and lists Python 3.14 as supported.
+pyspark==4.2.0

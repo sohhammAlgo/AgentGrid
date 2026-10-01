@@ -1,7 +1,10 @@
 // Job Console: submit a query to the orchestrator on the elected leader and watch the
 // pipeline (RETRIEVE -> RANK -> SUMMARIZE -> SYNTHESIZE) run across the nodes, plus the
 // findings the workers posted to the replicated blackboard.
-// Renders only what /api/jobs and /api/election report. Every piece of user or corpus text
+// Retrieval SCAN (default) reads every document in RETRIEVE; INDEX reads only the documents the
+// Exp 7 MapReduce index lists for the query's terms, and is enabled only while
+// /api/mapreduce/index reports a usable (present, not stale) index.
+// Renders only what /api/jobs, /api/election and /api/mapreduce/index report. Every piece of user or corpus text
 // (query, answer, keys, errors) is written with text nodes, never through innerHTML.
 
 (function() {
@@ -19,11 +22,17 @@
     const consistency = h('select', { id: 'job-consistency', className: 'form-control',
       title: 'Consistency of the findings the workers post to the blackboard' },
       [h('option', { value: 'EVENTUAL' }, 'EVENTUAL findings'), h('option', { value: 'STRONG' }, 'STRONG findings')]);
+    const retrieval = h('select', { id: 'job-retrieval', className: 'form-control',
+      title: 'How RETRIEVE picks documents: SCAN reads all of them, INDEX only those the MapReduce index lists' },
+      [h('option', { value: 'SCAN' }, 'SCAN retrieval'),
+       h('option', { value: 'INDEX', disabled: true }, 'INDEX retrieval')]);
     const submit = h('button', { type: 'submit', id: 'job-submit', className: 'btn btn-primary' }, 'Submit');
-    const form = h('form', { id: 'job-form', className: 'job-form' }, [query, policy, consistency, submit]);
+    const form = h('form', { id: 'job-form', className: 'job-form' }, [query, policy, consistency, retrieval, submit]);
 
     root.replaceChildren(
       form,
+      h('div', { id: 'job-retrieval-hint', className: 'job-stage-meta', style: { margin: '-6px 0 12px' } },
+        'INDEX retrieval: checking the MapReduce index...'),
       h('div', { className: 'job-grid' }, [
         h('div', {}, [
           h('div', { className: 'job-status-row', id: 'job-status' }, 'No job selected.'),
@@ -42,7 +51,7 @@
       e.preventDefault();
       submit.disabled = true;
       try {
-        const resp = await AG.submitJob(query.value, policy.value, consistency.value);
+        const resp = await AG.submitJob(query.value, policy.value, consistency.value, retrieval.value);
         select(resp.jobId);
       } catch (err) {
         showError(err.message);
@@ -50,6 +59,36 @@
         submit.disabled = false;
       }
     });
+  }
+
+  /**
+   * Enables the INDEX option only while the MapReduce index is present and not stale; called at
+   * start, on every MAPREDUCE_* event and every 10 s.
+   */
+  async function refreshIndexState() {
+    const select = document.getElementById('job-retrieval');
+    const hint = document.getElementById('job-retrieval-hint');
+    if (!select || !hint) return;
+    const option = select.querySelector('option[value="INDEX"]');
+    let text;
+    let usable = false;
+    try {
+      const ix = await AG.mapReduceIndex();
+      usable = !!ix.usable;
+      if (usable) {
+        text = 'INDEX retrieval available: MapReduce index of ' + ix.terms + ' terms over ' + ix.documents
+          + ' documents, built ' + ix.builtAt + '.';
+      } else if (!ix.available) {
+        text = 'INDEX retrieval disabled: no MapReduce index yet. Run MapReduce first (MapReduce tab, job "index").';
+      } else {
+        text = 'INDEX retrieval disabled: the index is stale, re-run MapReduce. ' + (ix.reason || '');
+      }
+    } catch (err) {
+      text = 'INDEX retrieval disabled: ' + err.message;
+    }
+    option.disabled = !usable;
+    if (!usable && select.value === 'INDEX') select.value = 'SCAN';
+    hint.textContent = text;
   }
 
   function showError(message) {
@@ -70,6 +109,12 @@
       h('span', {}, job.completedSubtasks + '/' + job.subtasks + ' subtasks'),
       h('span', {}, 'makespan ' + (job.makespanMs == null ? '—' : job.makespanMs + ' ms'))
     ];
+    const r = job.retrieval;
+    if (r) {
+      parts.push(h('span', {}, ['retrieval ', h('b', {}, r.mode),
+        r.docsTouched == null ? '' : ' · docs touched ' + r.docsTouched + '/' + r.docsTotal
+          + ' · ' + r.retrieveSubtasks + ' RETRIEVE subtasks · ' + r.retrievalMs + ' ms']));
+    }
     if (job.orphanAdoptedBy != null) parts.push(h('span', {}, 'recorded as orphan by node ' + job.orphanAdoptedBy));
     if (job.error) parts.push(h('span', { className: 'text-rose' }, job.error));
     document.getElementById('job-status').replaceChildren(...parts);
@@ -181,10 +226,11 @@
           r.tr = h('tr', { className: 'job-row', onclick: () => select(j.jobId) }, [r.id, r.policy, r.status, r.makespan]);
           recentRows.set(j.jobId, r);
         }
-        const key = [j.policy, j.consistency, j.status, j.makespanMs].join('|');
+        const mode = j.retrieval && j.retrieval.mode === 'INDEX' ? ' / INDEX' : '';
+        const key = [j.policy, j.consistency, mode, j.status, j.makespanMs].join('|');
         if (key !== r.key) {
           r.key = key;
-          r.policy.textContent = j.policy + (j.consistency ? ' / ' + j.consistency : '');
+          r.policy.textContent = j.policy + (j.consistency ? ' / ' + j.consistency : '') + mode;
           r.status.replaceChildren(statusBadge(j.status));
           r.makespan.textContent = j.makespanMs == null ? '—' : j.makespanMs + ' ms';
         }
@@ -204,9 +250,12 @@
   document.addEventListener('DOMContentLoaded', () => {
     render();
     refreshRecent();
+    refreshIndexState();
     AG.onElectionUpdate(renderLeader);
+    AG.onEvent(ev => { if (String(ev.type).startsWith('MAPREDUCE_')) refreshIndexState(); });
     setInterval(refreshRecent, 3000);
+    setInterval(refreshIndexState, 10000);
   });
 
-  window.AgentGridJobs = { select };
+  window.AgentGridJobs = { select, refreshIndexState };
 })();

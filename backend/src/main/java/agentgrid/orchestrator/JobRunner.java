@@ -107,12 +107,39 @@ public final class JobRunner {
             }
             String query = job.getQuery();
 
+            // SCAN dispatches every chunk; INDEX only the chunks holding a document the
+            // MapReduce index lists for the query, and each such subtask reads only those.
+            RetrievalPlan plan = job.getRetrieval();
+            Set<String> indexed = plan.docIdSet();
+            Corpus corpus = Corpus.load();
+            int docsTouched = 0;
             List<String[]> inputs = new ArrayList<>();
             for (int i = 0; i < RETRIEVE_FANOUT; i++) {
-                inputs.add(new String[] {"chunk " + (i + 1) + "/" + RETRIEVE_FANOUT,
-                        new Payload().put("query", query).put("chunk", i).put("chunks", RETRIEVE_FANOUT).encode()});
+                Payload p = new Payload().put("query", query).put("chunk", i).put("chunks", RETRIEVE_FANOUT);
+                String label = "chunk " + (i + 1) + "/" + RETRIEVE_FANOUT;
+                List<Corpus.Doc> chunkDocs = corpus.chunk(i, RETRIEVE_FANOUT);
+                if (plan.isIndex()) {
+                    List<String> docs = new ArrayList<>();
+                    for (Corpus.Doc d : chunkDocs) {
+                        if (indexed.contains(d.getId())) {
+                            docs.add(d.getId());
+                        }
+                    }
+                    if (docs.isEmpty()) {
+                        continue;
+                    }
+                    p.put("docs", String.join(",", docs));
+                    label += " (index: " + String.join(", ", docs) + ")";
+                    docsTouched += docs.size();
+                } else {
+                    docsTouched += chunkDocs.size();
+                }
+                inputs.add(new String[] {label, p.encode()});
             }
-            if (!runStage(job, Subtask.Type.RETRIEVE, inputs, policy)) {
+            long retrieveStart = System.currentTimeMillis();
+            boolean retrieved = runStage(job, Subtask.Type.RETRIEVE, inputs, policy);
+            job.retrievalMetrics(corpus.size(), docsTouched, inputs.size(), System.currentTimeMillis() - retrieveStart);
+            if (!retrieved) {
                 return fail(job, "RETRIEVE failed");
             }
             Set<String> candidates = new LinkedHashSet<>();

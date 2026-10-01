@@ -495,3 +495,46 @@ The submitted `replication/*` classes are unchanged. The integrated blackboard i
     - The default call summarised `doc-01` "Remote Method Invocation" in 2 sentences.
     - `doc-07` gave "Bully Election" (3 calls in 172 ms).
     - `"doc": "nope"` returned 400 "Unknown corpus document: nope".
+
+## Exp 7: MapReduce in the Control Plane
+
+### Fix Z: The MapReduce Index Was Never Used by the Cluster
+
+- **Bug Description**: Exp 7 (`mapreduce/exp7_mapreduce.py`) built an inverted index of the corpus with Spark, but only as a standalone script.
+  - Nothing in AgentGrid could run it.
+  - Its output did not say which corpus it was built from.
+  - Every job's RETRIEVE stage still scanned all 40 documents in 20 chunks.
+- **Location**:
+  - [`control/MapReduceApi.java`](backend/src/main/java/agentgrid/control/MapReduceApi.java), [`control/IndexStore.java`](backend/src/main/java/agentgrid/control/IndexStore.java) (new);
+  - [`control/ControlPlaneMain.java`](backend/src/main/java/agentgrid/control/ControlPlaneMain.java), [`control/JobDirectory.java`](backend/src/main/java/agentgrid/control/JobDirectory.java), [`node/ClusterConfig.java`](backend/src/main/java/agentgrid/node/ClusterConfig.java) (`pythonCommand`);
+  - [`orchestrator/RetrievalPlan.java`](backend/src/main/java/agentgrid/orchestrator/RetrievalPlan.java) (new), [`orchestrator/JobRunner.java`](backend/src/main/java/agentgrid/orchestrator/JobRunner.java), [`orchestrator/RetrieveStrategy.java`](backend/src/main/java/agentgrid/orchestrator/RetrieveStrategy.java), [`orchestrator/Job.java`](backend/src/main/java/agentgrid/orchestrator/Job.java), [`orchestrator/Orchestrator.java`](backend/src/main/java/agentgrid/orchestrator/Orchestrator.java), [`orchestrator/OrchestratorService.java`](backend/src/main/java/agentgrid/orchestrator/OrchestratorService.java);
+  - `mapreduce/exp7_mapreduce.py` (`--json`, `--job`, `--compare`; index file fields);
+  - `frontend/panels/exp7.js` (new), `frontend/jobs.js`, `frontend/app.js`, `frontend/styles.css`.
+- **What Changed**:
+  - **Script.**
+    - `--json` runs one pass of one job at `local[4]` (plus `local[1]` with `--compare`) and writes exactly one JSON line to stdout. File descriptor 1 is pointed at stderr for everything else, Spark's JVM included.
+    - `inverted_index.json` gained `N`, `docLengths`, `builtAt` and `fingerprint` (document count + SHA-256 of `docId:length\n` per document).
+    - Console mode prints exactly what it printed before.
+  - **Control plane.**
+    - `POST /api/mapreduce/run` starts `<pythonCommand> mapreduce/exp7_mapreduce.py --json ...` with a 300 s limit. It returns 409 while a run is in progress, and 503 with a readable reason and the last 20 stderr lines on failure.
+    - `GET /api/mapreduce/last`, `/status` and `/index`; Exp 7 is registered in `/api/modules`.
+    - Events: `MAPREDUCE_STARTED`, `MAPREDUCE_COMPLETE`, `MAPREDUCE_FAILED`.
+  - **Index store.** `IndexStore` loads the index at start and after every successful run, and compares its fingerprint with the control plane's own corpus.
+  - **Retrieval option.**
+    - `POST /api/jobs` accepts `"retrieval": "SCAN"` (default) or `"INDEX"`. INDEX without a usable index is a 409 ("run MapReduce first" / "index is stale, re-run").
+    - In INDEX mode the control plane tokenizes the query with `Corpus.terms` and passes the documents that contain a query term to the leader (`RetrievalPlan`, a new `OrchestratorService.submit` overload).
+    - `JobRunner` dispatches only the chunks holding those documents, and `RetrieveStrategy` reads only the documents named in the payload.
+    - RANK and every later stage are unchanged.
+    - Every job records `docsTotal, docsTouched, retrieveSubtasks, retrievalMs`.
+- **Before/After** (MapReduceVerifier, fresh control plane with `-Dagentgrid.pythonCommand=D:\anaconda3\python.exe -Dagentgrid.testHooks=true`, 5 nodes):
+  - *Before*: no way to run MapReduce from AgentGrid; every job touched 40/40 documents in 20 RETRIEVE subtasks.
+  - *After*:
+    - MR3: an INDEX job before any index existed got 409 "run MapReduce first".
+    - MR2: a second run 130 ms into the first got 409.
+    - MR1: the index run took 53.6 s end to end (local[4] pass 25.0 s) and was verified. It listed the top documents doc-09 0.9181, doc-07 0.7111, doc-26 0.3763, doc-08 0.3165, doc-30 0.2972, and the reloaded index's fingerprint matched (669 terms, 1156 postings).
+    - MR4: SCAN and INDEX jobs both COMPLETE with the same 20-document ranking, the same cited documents (doc-09, doc-09, doc-07, doc-32) and identical answers. INDEX touched 22/40 documents in 16 RETRIEVE subtasks (170 ms) vs SCAN 40/40 in 20 (243 ms); makespan 716 vs 890 ms.
+    - MR5: with the fingerprint expectation corrupted, INDEX got 409 "the MapReduce index is stale, re-run MapReduce"; it was usable again after restoring.
+    - MR6: a job without `retrieval` ran as SCAN (40/40, 20 subtasks).
+    - With `-Dagentgrid.pythonCommand=nonexistent` the run returned 503 "could not start the Python interpreter 'nonexistent': ... CreateProcess error=2"; with the default `python` (no pyspark here), 503 "... exited with status 1 ...; pyspark is not installed".
+    - JobVerifier, BlackboardVerifier, ElectionVerifier and MembershipVerifier passed unchanged on fresh control planes.
+- **Limitation**: Spark runs on the control-plane host, not on the nodes. With 40 documents the saving shows in documents touched, not in time (the makespan is dominated by the simulated 150 ms per subtask).

@@ -1,0 +1,65 @@
+{
+  "query": "How do leader election and failure detectors handle a crashed node?",
+  "terms": {
+    "leader": {
+      "df": 7,
+      "idf": 2.6341305250244718
+    },
+    "election": {
+      "df": 4,
+      "idf": 3.1041341542702074
+    },
+    "failure": {
+      "df": 6,
+      "idf": 2.7676619176489945
+    },
+    "detector": {
+      "df": 1,
+      "idf": 4.0204248861443626
+    },
+    "handle": {
+      "df": 2,
+      "idf": 3.614959778036198
+    },
+    "crashed": {
+      "df": 2,
+      "idf": 3.614959778036198
+    },
+    "node": {
+      "df": 12,
+      "idf": 2.1486227092427708
+    }
+  },
+  "top": [
+    {
+      "rank": 1,
+      "docId": "doc-09",
+      "score": 0.9180505682360462,
+      "title": "Failure Detectors"
+    },
+    {
+      "rank": 2,
+      "docId": "doc-07",
+      "score": 0.7110821842461952,
+      "title": "Bully Election"
+    },
+    {
+      "rank": 3,
+      "docId": "doc-26",
+      "score": 0.37630436071778167,
+      "title": "Leader Leases"
+    },
+    {
+      "rank": 4,
+      "docId": "doc-08",
+      "score": 0.31650343909991074,
+      "title": "Ring Election"
+    },
+    {
+      "rank": 5,
+      "docId": "doc-30",
+      "score": 0.2972106466250744,
+      "title": "Byzantine Faults"
+    }
+  ]
+}

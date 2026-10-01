@@ -77,6 +77,12 @@ public class JobDirectory {
 
     /** Submits a job to the agreed leader's orchestrator. */
     public Map<String, Object> submit(String query, String policy, String consistency) throws ApiException {
+        return submit(query, policy, consistency, agentgrid.orchestrator.RetrievalPlan.scan());
+    }
+
+    /** Submits a job with a RETRIEVE plan (SCAN, or INDEX with the documents the MapReduce index lists). */
+    public Map<String, Object> submit(String query, String policy, String consistency,
+                                      agentgrid.orchestrator.RetrievalPlan retrieval) throws ApiException {
         Object leader = monitor.getElectionTracker().toMap().get("leaderId");
         if (!(leader instanceof Integer)) {
             throw new ApiException(503, "no agreed leader; an election may be in progress");
@@ -86,7 +92,7 @@ public class JobDirectory {
         Job snapshot;
         try {
             OrchestratorService orchestrator = orchestratorOf(leaderId);
-            jobId = monitor.call(() -> orchestrator.submit(query, policy, consistency));
+            jobId = monitor.call(() -> orchestrator.submit(query, policy, consistency, retrieval));
             snapshot = monitor.call(() -> orchestrator.getJob(jobId));
         } catch (Exception e) {
             throw new ApiException(503, "leader node " + leaderId + " did not accept the job: " + rootMessage(e));
@@ -101,6 +107,7 @@ public class JobDirectory {
         resp.put("jobId", jobId);
         resp.put("leader", leaderId);
         resp.put("consistency", consistency);
+        resp.put("retrieval", retrieval.getMode());
         resp.put("status", snapshot == null ? null : snapshot.getStatus().name());
         return resp;
     }

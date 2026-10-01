@@ -628,7 +628,7 @@ body {
 
 .job-form {
   display: grid;
-  grid-template-columns: 1fr 160px 170px auto;
+  grid-template-columns: 1fr 160px 170px 170px auto;
   gap: 10px;
   margin-bottom: 14px;
 }

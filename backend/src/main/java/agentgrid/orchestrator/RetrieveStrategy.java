@@ -4,12 +4,15 @@ import agentgrid.common.Result;
 import agentgrid.common.Subtask;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * RETRIEVE: keyword match of the query over one chunk of the corpus.
- * Payload: query, chunk (0-based), chunks. Output: one line per matching document,
- * "docId TAB matchedTerms TAB title", best match first.
+ * Payload: query, chunk (0-based), chunks, and optionally docs (comma separated ids): with docs
+ * (INDEX retrieval, Exp 7) only those documents of the chunk are read, otherwise all of them.
+ * Output: one line per matching document, "docId TAB matchedTerms TAB title", best match first.
  */
 public final class RetrieveStrategy implements StageStrategy {
 
@@ -25,9 +28,14 @@ public final class RetrieveStrategy implements StageStrategy {
         List<String> terms = Corpus.terms(p.get("query", ""));
         int chunks = Math.max(1, p.getInt("chunks", 1));
         int chunk = Math.min(Math.max(0, p.getInt("chunk", 0)), chunks - 1);
+        String docs = p.get("docs");
+        Set<String> only = docs == null ? null : new HashSet<>(List.of(docs.split(",")));
 
         List<String[]> hits = new ArrayList<>();
         for (Corpus.Doc d : corpus.chunk(chunk, chunks)) {
+            if (only != null && !only.contains(d.getId())) {
+                continue;
+            }
             int matched = 0;
             for (String t : terms) {
                 if (d.contains(t)) {

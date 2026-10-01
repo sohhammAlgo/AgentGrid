@@ -1,0 +1,106 @@
+{
+  "partitions": 4,
+  "documents": 40,
+  "pyspark": "4.2.0",
+  "python": "3.14.6",
+  "java": 23,
+  "job1_word_count": {
+    "input_partitions": [
+      10,
+      10,
+      10,
+      10
+    ],
+    "mapped_pairs": 1486,
+    "mapped_per_partition": [
+      409,
+      375,
+      350,
+      352
+    ],
+    "after_map_side_combine": 929,
+    "combined_per_partition": [
+      228,
+      226,
+      236,
+      239
+    ],
+    "reduce_partitions": [
+      178,
+      159,
+      163,
+      169
+    ],
+    "hash_placement_verified": true,
+    "distinct_terms": 669,
+    "spark_stages": [
+      "Spark job 0 stage 0: 4 tasks, reduceByKey at C:\\Users\\Dhruvv\\Desktop\\dc\\AgentGrid\\mapreduce\\exp7_mapreduce.py:220",
+      "Spark job 0 stage 1: 4 tasks, collectAsMap at C:\\Users\\Dhruvv\\Desktop\\dc\\AgentGrid\\mapreduce\\exp7_mapreduce.py:574"
+    ]
+  },
+  "job2_inverted_index": {
+    "mapped_pairs": 1486,
+    "mapped_per_partition": [
+      409,
+      375,
+      350,
+      352
+    ],
+    "after_map_side_combine": 1156,
+    "combined_per_partition": [
+      301,
+      288,
+      284,
+      283
+    ],
+    "tf_partitions": [
+      259,
+      285,
+      303,
+      309
+    ],
+    "index_partitions": [
+      178,
+      159,
+      163,
+      169
+    ],
+    "terms": 669,
+    "postings": 1156,
+    "spark_stages": [
+      "Spark job 6 stage 9: 4 tasks, reduceByKey at C:\\Users\\Dhruvv\\Desktop\\dc\\AgentGrid\\mapreduce\\exp7_mapreduce.py:229",
+      "Spark job 6 stage 10: 4 tasks, groupByKey at C:\\Users\\Dhruvv\\Desktop\\dc\\AgentGrid\\mapreduce\\exp7_mapreduce.py:232",
+      "Spark job 6 stage 11: 4 tasks, collectAsMap at C:\\Users\\Dhruvv\\Desktop\\dc\\AgentGrid\\mapreduce\\exp7_mapreduce.py:605"
+    ]
+  },
+  "timing_ms": {
+    "local[1]": {
+      "median": 35976.20530007407,
+      "runs": [
+        36556.34669982828,
+        35976.20530007407,
+        35768.44749995507
+      ]
+    },
+    "local[4]": {
+      "median": 35631.450599990785,
+      "runs": [
+        35631.450599990785,
+        34578.39509984478,
+        35730.75560014695
+      ]
+    },
+    "speedup": 1.009675572963717
+  },
+  "checks": {
+    "word count: all term counts equal": true,
+    "word count: top 15 equal": true,
+    "inverted index: all postings equal": true,
+    "retrieval: same documents scored": true,
+    "retrieval: same top 5 documents": true,
+    "retrieval: scores equal (rel. tol. 1e-9)": true,
+    "timed runs local[4]: results equal": true,
+    "timed runs local[1]: results equal": true
+  },
+  "verified": true
+}
