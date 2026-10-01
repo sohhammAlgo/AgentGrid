@@ -7,7 +7,7 @@ window.AgentGridPanels.exp1 = {
     container.innerHTML = `
       <div class="panel-inner">
         <div style="margin-bottom: 16px;">
-          <h3 style="font-size: 16px; font-weight: 700;">Experiment 1: RMI Remote Subtask Invocation</h3>
+          <h2 style="font-size: 16px; font-weight: 700;">Experiment 1: RMI Remote Subtask Invocation</h2>
           <p style="font-size: 13px; color: var(--text-muted);">
             Dispatches a single Subtask to a selected cluster node over Java RMI and verifies remote execution, Lamport clock ordering, and round-trip latency.
           </p>
@@ -44,9 +44,9 @@ window.AgentGridPanels.exp1 = {
         </form>
 
         <div id="exp1-result-container" style="margin-top: 20px; display: none;">
-          <h4 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;">
+          <h3 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;">
             Invocation Results
-          </h4>
+          </h3>
           <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px;">
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px;">
               <div class="stat-item">
@@ -74,9 +74,9 @@ window.AgentGridPanels.exp1 = {
         </div>
 
         <div style="margin-top: 24px;">
-          <h4 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;">
+          <h3 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;">
             Active Node Registry Bindings
-          </h4>
+          </h3>
           <div id="exp1-bindings-container" style="display: flex; flex-wrap: wrap; gap: 8px;">
             <!-- Rendered based on selected node -->
           </div>

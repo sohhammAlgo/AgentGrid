@@ -144,9 +144,9 @@ body {
 }
 
 .badge {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 3px 9px;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.06);
   color: var(--text-muted);
@@ -167,8 +167,8 @@ body {
 
 .cluster-grid {
   display: grid;
-  /* 3 to 9 members: as many ~210 px cards per row as fit */
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  /* 3 to 9 members: as many ~210 px cards per row as fit, stretched to fill the row */
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 14px;
 }
 
@@ -184,7 +184,7 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-dim);
 }
 
@@ -195,14 +195,14 @@ body {
 }
 
 .fleet-status {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   max-width: 420px;
 }
 
 .fleet-caption {
-  margin: 4px 0 10px;
-  font-size: 11px;
+  margin: 0 0 6px;
+  font-size: 12px;
   color: var(--text-dim);
 }
 
@@ -216,10 +216,10 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  padding: 16px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   /* Colour-only hover: a card that moves under the cursor flips :hover on and off near its
      edge, where the Kill/Restart buttons are. */
   transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
@@ -232,8 +232,8 @@ body {
 }
 
 .node-card-note {
-  min-height: 14px;
-  font-size: 11px;
+  min-height: 0;
+  font-size: 12px;
   color: #fb7185;
 }
 
@@ -245,7 +245,8 @@ body {
 .node-card-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 6px;
 }
 
 .node-title-wrap {
@@ -260,7 +261,10 @@ body {
 }
 
 .node-port {
-  font-size: 11px;
+  display: block;
+  margin-top: -6px;
+  font-size: 12px;
+  line-height: 1.35;
   color: var(--text-dim);
   font-family: var(--font-mono);
 }
@@ -274,7 +278,7 @@ body {
 .pool-label-row {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -299,10 +303,15 @@ body {
 .node-stats-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 6px 8px;
   background: rgba(0, 0, 0, 0.2);
   padding: 8px;
   border-radius: 8px;
+}
+
+/* The clock label is the longest: on its own row it stays on one line at 12px. */
+.node-stats-row .stat-item:first-child {
+  grid-column: 1 / -1;
 }
 
 .stat-item {
@@ -311,21 +320,31 @@ body {
 }
 
 .stat-label {
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 1.3;
   text-transform: uppercase;
   color: var(--text-dim);
 }
 
 .stat-val {
   font-size: 13px;
+  line-height: 1.35;
   font-weight: 600;
   font-family: var(--font-mono);
 }
 
 .node-card-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.node-card-actions .btn {
+  min-width: 0;
+  padding: 5px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Buttons */
@@ -351,7 +370,7 @@ body {
 
 .btn-sm {
   padding: 5px 10px;
-  font-size: 11px;
+  font-size: 12px;
   flex: 1;
 }
 
@@ -387,6 +406,25 @@ body {
   background: rgba(244, 63, 94, 0.25);
   border-color: rgba(244, 63, 94, 0.5);
   color: #fff;
+}
+
+/* Destructive actions (Kill, Remove): red outline and red text, never a solid red fill. */
+.btn-outline-danger {
+  background: transparent;
+  color: #fb7185;
+  border-color: rgba(244, 63, 94, 0.55);
+}
+
+.btn-outline-danger:hover:not(:disabled) {
+  border-color: var(--accent-rose);
+  color: #fda4af;
+}
+
+/* Remove's first click (two-step confirm): a stronger outline, still no fill. */
+.btn-outline-danger.confirming {
+  border-color: var(--accent-rose);
+  color: #fecdd3;
+  box-shadow: inset 0 0 0 1px var(--accent-rose);
 }
 
 .btn-warning {
@@ -426,10 +464,11 @@ body {
 
 .tabs-header {
   display: flex;
+  flex-wrap: wrap;
   background: rgba(0, 0, 0, 0.3);
   border-bottom: 1px solid var(--border-color);
-  padding: 6px 8px 0;
-  gap: 6px;
+  padding: 6px 6px 0;
+  gap: 4px 2px;
 }
 
 .tab-btn {
@@ -439,7 +478,8 @@ body {
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
-  padding: 10px 18px;
+  white-space: nowrap;
+  padding: 10px 11px;
   border-radius: 8px 8px 0 0;
   cursor: pointer;
   position: relative;
@@ -523,6 +563,23 @@ body {
   gap: 10px;
 }
 
+/* Cluster Event Stream header: title, count, "Order by", toggle and Clear share one baseline,
+   10px apart; the toggle and Clear are the same height. */
+.events-section .section-header,
+.events-section .events-title-wrap,
+.events-section .events-controls {
+  align-items: baseline;
+}
+
+.events-section .section-header {
+  gap: 10px;
+}
+
+.events-controls .btn {
+  flex: none;
+  padding: 5px 12px;
+}
+
 .order-label {
   font-size: 12px;
   color: var(--text-dim);
@@ -540,9 +597,9 @@ body {
   background: transparent;
   color: var(--text-muted);
   border: none;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -572,7 +629,7 @@ body {
   position: sticky;
   top: 0;
   background: #111726;
-  padding: 10px 12px;
+  padding: 10px 8px;
   font-weight: 600;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-color);
@@ -580,7 +637,7 @@ body {
 }
 
 .events-table td {
-  padding: 8px 12px;
+  padding: 8px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
@@ -590,8 +647,9 @@ body {
 
 .type-badge {
   display: inline-block;
+  overflow-wrap: anywhere;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 4px;
@@ -630,17 +688,11 @@ body {
   display: grid;
   grid-template-columns: 1fr 160px 170px 170px auto;
   gap: 10px;
-  margin-bottom: 14px;
-}
-
-.job-grid {
-  display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 16px;
+  margin-bottom: 10px;
 }
 
 @media (max-width: 1100px) {
-  .job-grid, .job-form {
+  .job-form {
     grid-template-columns: 1fr;
   }
 }
@@ -677,13 +729,13 @@ body {
 .job-stage-head {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   margin-bottom: 6px;
 }
 
 .job-stage-meta {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-dim);
   font-weight: 400;
 }
@@ -696,8 +748,8 @@ body {
 
 .job-chip {
   font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 2px 5px;
+  font-size: 12px;
+  padding: 1px 4px;
   border-radius: 4px;
   border: 1px solid var(--border-color);
   background: rgba(255, 255, 255, 0.05);
@@ -722,9 +774,17 @@ body {
   margin: 12px 0 6px;
 }
 
+.job-recent-block .job-subhead {
+  margin-top: 0;
+}
+
 .job-recent {
-  max-height: 260px;
+  max-height: 200px;
   overflow-y: auto;
+}
+
+.job-detail {
+  margin-top: 12px;
 }
 
 .job-row {
@@ -737,9 +797,9 @@ body {
 
 .job-badge {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
-  padding: 2px 6px;
+  padding: 1px 5px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.08);
 }
@@ -773,7 +833,7 @@ body {
 .node-badges {
   display: flex;
   gap: 4px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
 }
 
@@ -801,6 +861,7 @@ body {
   margin-bottom: 16px;
 }
 
+.exp4-box h3,
 .exp4-box h4 {
   font-size: 13px;
   font-weight: 600;
@@ -839,7 +900,7 @@ body {
 
 .mono-cell {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .empty-row td {

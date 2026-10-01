@@ -33,17 +33,15 @@
       form,
       h('div', { id: 'job-retrieval-hint', className: 'job-stage-meta', style: { margin: '-6px 0 12px' } },
         'INDEX retrieval: checking the MapReduce index...'),
-      h('div', { className: 'job-grid' }, [
-        h('div', {}, [
-          h('div', { className: 'job-status-row', id: 'job-status' }, 'No job selected.'),
-          h('div', { className: 'job-pipeline', id: 'job-pipeline' }),
-          h('div', { className: 'job-answer', id: 'job-answer' }),
-          h('div', { className: 'job-findings', id: 'job-findings' })
-        ]),
-        h('div', {}, [
-          h('h4', { className: 'job-subhead' }, 'Recent jobs'),
-          h('div', { className: 'job-recent', id: 'job-recent' })
-        ])
+      h('div', { className: 'job-recent-block' }, [
+        h('h3', { className: 'job-subhead' }, 'Recent jobs'),
+        h('div', { className: 'job-recent', id: 'job-recent' })
+      ]),
+      h('div', { className: 'job-detail' }, [
+        h('div', { className: 'job-status-row', id: 'job-status' }, 'No job selected.'),
+        h('div', { className: 'job-pipeline', id: 'job-pipeline' }),
+        h('div', { className: 'job-answer', id: 'job-answer' }),
+        h('div', { className: 'job-findings', id: 'job-findings' })
       ])
     );
 
@@ -136,9 +134,9 @@
 
     const answer = document.getElementById('job-answer');
     if (job.answer) {
-      answer.replaceChildren(h('h4', { className: 'job-subhead' }, 'Answer'), h('p', {}, job.answer));
+      answer.replaceChildren(h('h3', { className: 'job-subhead' }, 'Answer'), h('p', {}, job.answer));
     } else if (job.status === 'ORPHANED') {
-      answer.replaceChildren(h('h4', { className: 'job-subhead' }, 'Answer'),
+      answer.replaceChildren(h('h3', { className: 'job-subhead' }, 'Answer'),
         h('p', { className: 'text-rose' }, 'The leader stopped before this job finished; completed subtasks are kept above. Recovery is not implemented.'));
     } else {
       answer.replaceChildren();
@@ -168,7 +166,7 @@
     }
     const s = job.blackboard || {};
     box.replaceChildren(
-      h('h4', { className: 'job-subhead' }, 'Findings on the blackboard (' + (s.consistency || '') + '): '
+      h('h3', { className: 'job-subhead' }, 'Findings on the blackboard (' + (s.consistency || '') + '): '
         + (s.stored ?? '?') + '/' + (s.posted ?? '?') + ' stored'),
       h('div', { className: 'exp4-table-wrap' }, h('table', { className: 'events-table' }, [
         h('thead', {}, h('tr', {}, ['Key', 'Writer', 'Status', 'Write', 'LWW timestamp'].map(t => h('th', {}, t)))),

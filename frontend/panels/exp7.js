@@ -31,7 +31,7 @@ window.AgentGridPanels.exp7 = {
 
     container.replaceChildren(h('div', { className: 'panel-inner', id: 'exp7-root' }, [
       h('div', { style: { marginBottom: '16px' } }, [
-        h('h3', { style: { fontSize: '16px', fontWeight: '700' } }, 'Experiment 7: MapReduce with Apache Spark'),
+        h('h2', { style: { fontSize: '16px', fontWeight: '700' } }, 'Experiment 7: MapReduce with Apache Spark'),
         h('p', { style: { fontSize: '13px', color: 'var(--text-muted)' } },
           'Word count and an inverted index over the 40 corpus documents: map, map-side combine, hash-partitioned '
           + 'shuffle, reduce. Every Spark result is checked against plain Python. A successful index run '
@@ -70,7 +70,7 @@ window.AgentGridPanels.exp7 = {
     }
 
     function section(title, children) {
-      return h('div', { className: 'exp4-box' }, [h('h4', {}, title)].concat(children));
+      return h('div', { className: 'exp4-box' }, [h('h3', {}, title)].concat(children));
     }
 
     function renderResult(r) {
@@ -146,7 +146,7 @@ window.AgentGridPanels.exp7 = {
 
     function renderError(message) {
       results.replaceChildren(h('div', { className: 'exp4-box' }, [
-        h('h4', {}, 'MapReduce run failed'),
+        h('h3', {}, 'MapReduce run failed'),
         h('pre', { className: 'text-rose', style: { whiteSpace: 'pre-wrap', fontSize: '12px', margin: '0' } }, message)
       ]));
     }
@@ -161,7 +161,7 @@ window.AgentGridPanels.exp7 = {
     function tick() {
       if (!progress.isConnected) { clearInterval(ticker); return; }
       const secs = Math.round((Date.now() - panel._startedAt) / 1000);
-      progress.textContent = 'Running... ' + secs + ' s (takes about 30 s' + (compare.checked ? ', longer with local[1]' : '') + ')';
+      progress.textContent = 'Running... ' + secs + ' s (takes about 1 minute' + (compare.checked ? ', longer with local[1]' : '') + ')';
     }
 
     function follow(promise) {

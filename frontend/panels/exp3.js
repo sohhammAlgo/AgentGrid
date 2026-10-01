@@ -7,7 +7,7 @@ window.AgentGridPanels.exp3 = {
     container.innerHTML = `
       <div class="panel-inner">
         <div style="margin-bottom: 16px;">
-          <h3 style="font-size: 16px; font-weight: 700;">Experiment 3: Physical Clock Drift & Berkeley Sync</h3>
+          <h2 style="font-size: 16px; font-weight: 700;">Experiment 3: Physical Clock Drift & Berkeley Sync</h2>
           <p style="font-size: 13px; color: var(--text-muted);">
             Manipulate artificial hardware clock skew across nodes and trigger round-trip compensated Berkeley algorithm synchronization to converge node physical clocks. The coordinator is the elected leader node, which is included in the average. Berkeley converges the nodes to their mean offset, not to real time, which is what LWW on the blackboard needs: the nodes agree with each other.
           </p>
@@ -15,9 +15,9 @@ window.AgentGridPanels.exp3 = {
 
         <!-- Section 1: Set Clock Drift -->
         <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; margin-bottom: 20px;">
-          <h4 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); margin-bottom: 12px;">
+          <h3 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); margin-bottom: 12px;">
             Inject / Adjust Physical Clock Drift
-          </h4>
+          </h3>
           <form id="exp3-drift-form" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: flex-end;">
             <div class="form-group" style="margin-bottom: 0;">
               <label class="form-label" for="exp3-drift-node">Target Node</label>
@@ -39,9 +39,9 @@ window.AgentGridPanels.exp3 = {
         <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div>
-              <h4 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-dim);">
+              <h3 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-dim);">
                 Berkeley Round on the Leader Node
-              </h4>
+              </h3>
               <span style="font-size: 12px; color: var(--text-muted);">
                 Asks the elected leader to poll every live node, compensate each reading for RTT, include itself in the average, and send each node its correction. Unreachable nodes are skipped. Returns 409 while no leader is agreed.
               </span>

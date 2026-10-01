@@ -66,11 +66,11 @@ window.AgentGridPanels.exp5 = {
         h('table', { className: 'events-table' }, [replicaHead, replicaBody]))]);
     let replicaSig = null;
 
-    const box = (title, children) => h('div', { className: 'exp4-box' }, [h('h4', {}, title)].concat(children));
+    const box = (title, children) => h('div', { className: 'exp4-box' }, [h('h3', {}, title)].concat(children));
 
     container.replaceChildren(h('div', { className: 'panel-inner', id: 'exp5-root' }, [
       h('div', { style: { marginBottom: '16px' } }, [
-        h('h3', { style: { fontSize: '16px', fontWeight: '700' } }, 'Experiment 5: Replicated Blackboard'),
+        h('h2', { style: { fontSize: '16px', fontWeight: '700' } }, 'Experiment 5: Replicated Blackboard'),
         h('p', { style: { fontSize: '13px', color: 'var(--text-muted)' } }, [
           'STRONG writes replicate synchronously to every live replica and need ', quorumText,
           '; with fewer they are refused and nothing is written. '

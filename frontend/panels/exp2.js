@@ -7,7 +7,7 @@ window.AgentGridPanels.exp2 = {
     container.innerHTML = `
       <div class="panel-inner">
         <div style="margin-bottom: 16px;">
-          <h3 style="font-size: 16px; font-weight: 700;">Experiment 2: Thread-Pooled Concurrent Burst</h3>
+          <h2 style="font-size: 16px; font-weight: 700;">Experiment 2: Thread-Pooled Concurrent Burst</h2>
           <p style="font-size: 13px; color: var(--text-muted);">
             Dispatches concurrent Subtasks to verify thread-pool concurrency gating, measure total makespan, and observe speedup across heterogeneous nodes.
           </p>
@@ -50,9 +50,9 @@ window.AgentGridPanels.exp2 = {
 
         <!-- Live Metrics / Burst Summary -->
         <div id="exp2-summary-container" style="margin-top: 20px; display: none;">
-          <h4 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;">
+          <h3 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;">
             Burst Performance Metrics
-          </h4>
+          </h3>
           <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px;">
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
               <div class="stat-item">
@@ -161,7 +161,7 @@ window.AgentGridPanels.exp2 = {
         tbody.replaceChildren(...(resp.calls || []).map(c => h('tr', {}, [
           h('td', { className: 'mono-cell' }, String(c.index + 1)),
           h('td', { className: 'mono-cell' }, c.subtaskId),
-          h('td', { style: { color: 'var(--text-main)', fontSize: '11px' } }, c.payload || c.error),
+          h('td', { style: { color: 'var(--text-main)', fontSize: '12px' } }, c.payload || c.error),
           h('td', { className: 'mono-cell' }, 'L=' + c.lamportSent),
           h('td', { className: 'mono-cell', style: { color: 'var(--accent-indigo)', fontWeight: '600' } }, 'L=' + c.lamportReceived),
           h('td', { className: 'mono-cell', style: { color: 'var(--accent-cyan)' } }, c.latencyMs + ' ms')

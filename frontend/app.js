@@ -336,6 +336,7 @@
   const cards = new Map();
   const PENDING_TIMEOUT_MS = 10000;
   const CONFIRM_MS = 3000;
+  const REMOVE_TITLE = 'Remove this node from the cluster (a new membership epoch)';
 
   function renderClusterGrid(nodes) {
     const grid = document.getElementById('cluster-grid');
@@ -390,18 +391,21 @@
     c.clock = h('span', { className: 'stat-val' });
     c.lamport = h('span', { className: 'stat-val' });
     c.leaderView = h('span', { className: 'stat-val' });
-    c.killBtn = h('button', { className: 'btn btn-sm btn-danger', type: 'button' }, 'Kill');
-    c.restartBtn = h('button', { className: 'btn btn-sm btn-warning', type: 'button' }, 'Restart');
-    c.removeBtn = h('button', { className: 'btn btn-sm btn-ghost', type: 'button',
-      title: 'Remove this node from the cluster (a new membership epoch)' }, 'Remove');
+    c.killBtn = h('button', { className: 'btn btn-sm btn-outline-danger', type: 'button',
+      title: 'Kill node ' + id + "'s process" }, 'Kill');
+    c.restartBtn = h('button', { className: 'btn btn-sm btn-warning', type: 'button',
+      title: 'Restart node ' + id + "'s process" }, 'Restart');
+    c.removeBtn = h('button', { className: 'btn btn-sm btn-outline-danger', type: 'button',
+      title: REMOVE_TITLE }, 'Remove');
     c.note = h('div', { className: 'node-card-note' });
     const stat = (label, val, title) => h('div', { className: 'stat-item', title: title || '' },
       [h('span', { className: 'stat-label' }, label), val]);
     c.root = h('div', { className: 'node-card', id: 'node-card-' + id }, [
       h('div', { className: 'node-card-header' }, [
-        h('div', { className: 'node-title-wrap' }, [c.title, c.port]),
+        h('div', { className: 'node-title-wrap' }, [c.title]),
         h('div', { className: 'node-badges' }, [c.leaderBadge, c.backupBadge, c.statusBadge])
       ]),
+      c.port,
       h('div', { className: 'pool-metric' }, [
         h('div', { className: 'pool-label-row' }, [c.poolText, c.poolPct]),
         h('div', { className: 'pool-progress-bar' }, c.poolFill)
@@ -427,8 +431,9 @@
     const pct = Math.min(100, Math.round((depth / pool) * 100));
     c.root.classList.toggle('offline', !n.up);
     c.root.classList.toggle('is-leader', !!n.isLeader);
-    c.port.textContent = 'port :' + n.port + ' · weight ' + (n.weight == null ? '—' : n.weight)
-      + (n.up && n.epoch != null ? ' · epoch ' + n.epoch : '');
+    // Non-breaking spaces keep each label with its value when the line wraps.
+    c.port.textContent = 'port :' + n.port + ' · weight ' + (n.weight == null ? '—' : n.weight)
+      + (n.up && n.epoch != null ? ' · epoch ' + n.epoch : '');
     c.leaderBadge.style.display = n.isLeader ? '' : 'none';
     c.backupBadge.style.display = isBackup ? '' : 'none';
     c.statusBadge.className = 'badge ' + (n.up ? 'online' : 'offline');
@@ -453,8 +458,8 @@
     c.restartBtn.textContent = 'Restart';
     if (!c.confirmTimer) {
       c.removeBtn.textContent = 'Remove';
-      c.removeBtn.classList.remove('btn-danger');
-      c.removeBtn.classList.add('btn-ghost');
+      c.removeBtn.classList.remove('confirming');
+      c.removeBtn.title = REMOVE_TITLE;
     }
   }
 
@@ -476,7 +481,8 @@
     c.pending = p;
     c.note.textContent = '';
     disableAll(c);
-    (action === 'kill' ? c.killBtn : c.restartBtn).textContent = action === 'kill' ? 'Killing...' : 'Restarting...';
+    // Short in-progress labels: the three buttons share one fixed-width row.
+    (action === 'kill' ? c.killBtn : c.restartBtn).textContent = action === 'kill' ? 'Kill…' : 'Restart…';
     p.timer = setTimeout(() => {
       if (c.pending === p) finishPending(c, 'No ' + (action === 'kill' ? 'DOWN' : 'UP') + ' state seen within 10 s.');
     }, PENDING_TIMEOUT_MS);
@@ -493,16 +499,16 @@
   }
 
   /**
-   * Remove is two-step: the first click turns the button into "Confirm remove?" for 3 s; a
+   * Remove is two-step: the first click turns the button into "Confirm?" for 3 s; a
    * second click within that time sends the request. The server's 409/404 reason is shown on
    * the card (text only). On success the card disappears when the new membership arrives.
    */
   async function removeClick(c) {
     if (c.pending) return;
     if (!c.confirmTimer) {
-      c.removeBtn.textContent = 'Confirm remove?';
-      c.removeBtn.classList.remove('btn-ghost');
-      c.removeBtn.classList.add('btn-danger');
+      c.removeBtn.textContent = 'Confirm?';
+      c.removeBtn.title = 'Click again within 3 s to remove node ' + c.id;
+      c.removeBtn.classList.add('confirming');
       c.confirmTimer = setTimeout(() => cancelConfirm(c), CONFIRM_MS);
       return;
     }
@@ -511,7 +517,7 @@
     c.pending = p;
     c.note.textContent = '';
     disableAll(c);
-    c.removeBtn.textContent = 'Removing...';
+    c.removeBtn.textContent = 'Remove…';
     p.timer = setTimeout(() => {
       if (c.pending === p) finishPending(c, 'Node still a member 10 s after the remove request.');
     }, PENDING_TIMEOUT_MS);
@@ -531,8 +537,8 @@
     }
     if (!c.pending) {
       c.removeBtn.textContent = 'Remove';
-      c.removeBtn.classList.remove('btn-danger');
-      c.removeBtn.classList.add('btn-ghost');
+      c.removeBtn.classList.remove('confirming');
+      c.removeBtn.title = REMOVE_TITLE;
     }
   }
 

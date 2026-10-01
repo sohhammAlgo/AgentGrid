@@ -9,7 +9,7 @@ window.AgentGridPanels.exp4 = {
     container.innerHTML = `
       <div class="panel-inner" id="exp4-root">
         <div style="margin-bottom: 16px;">
-          <h3 style="font-size: 16px; font-weight: 700;">Experiment 4: Leader Election</h3>
+          <h2 style="font-size: 16px; font-weight: 700;">Experiment 4: Leader Election</h2>
           <p style="font-size: 13px; color: var(--text-muted);">
             Every node pings its leader every 500 ms; three missed heartbeats trigger an election.
             Convergence is measured by the control plane from node events: first ELECTION_STARTED to last LEADER_ACCEPTED.
@@ -17,7 +17,7 @@ window.AgentGridPanels.exp4 = {
         </div>
 
         <div class="exp4-box">
-          <h4>Controls</h4>
+          <h3>Controls</h3>
           <div class="exp4-row">
             <div class="form-group" style="margin-bottom: 0;">
               <label class="form-label">Algorithm</label>
@@ -36,7 +36,7 @@ window.AgentGridPanels.exp4 = {
         </div>
 
         <div class="exp4-box">
-          <h4>Agreement</h4>
+          <h3>Agreement</h3>
           <div class="exp4-stats">
             <div class="stat-item"><span class="stat-label">Algorithm</span><span class="stat-val" id="exp4-alg">—</span></div>
             <div class="stat-item"><span class="stat-label">Agreed</span><span class="stat-val" id="exp4-agreed">—</span></div>
@@ -47,7 +47,7 @@ window.AgentGridPanels.exp4 = {
         </div>
 
         <div class="exp4-box" style="margin-bottom: 0;">
-          <h4>Last Election Episode</h4>
+          <h3>Last Election Episode</h3>
           <div id="exp4-episode"></div>
         </div>
       </div>

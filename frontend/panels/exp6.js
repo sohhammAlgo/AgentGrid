@@ -14,7 +14,7 @@ window.AgentGridPanels.exp6 = {
     container.innerHTML = `
       <div class="panel-inner" id="exp6-root">
         <div style="margin-bottom: 16px;">
-          <h3 style="font-size: 16px; font-weight: 700;">Experiment 6: Load Balancing Policies</h3>
+          <h2 style="font-size: 16px; font-weight: 700;">Experiment 6: Load Balancing Policies</h2>
           <p style="font-size: 13px; color: var(--text-muted);">
             Runs the same job once per policy, one after another, through the leader's orchestrator.
             Each job fans RETRIEVE and SUMMARIZE out to up to 20 subtasks; nodes add a fixed simulated delay per subtask.
