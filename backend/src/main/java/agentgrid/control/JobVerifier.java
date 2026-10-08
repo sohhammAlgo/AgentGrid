@@ -180,7 +180,18 @@ public class JobVerifier {
     // J4: leader killed mid-job
     // =========================================================================
 
+    /** J4 tests the ORPHANED path, which is the behaviour with primary-backup replication OFF (Exp 8): switch it off for J4 and restore it. */
     private void j4() throws Exception {
+        post("/api/replication/toggle", "{\"enabled\":false}");
+        line("primary-backup replication switched OFF for J4 (ORPHANED is its OFF behaviour); restored afterwards");
+        try {
+            j4Body();
+        } finally {
+            post("/api/replication/toggle", "{\"enabled\":true}");
+        }
+    }
+
+    private void j4Body() throws Exception {
         header("J4 kill the leader mid-job: ORPHANED with completed subtasks kept; the new leader takes new jobs");
         ensureCluster();
         long leader = num(election().get("leaderId"));

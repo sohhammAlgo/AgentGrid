@@ -113,6 +113,7 @@
         r.docsTouched == null ? '' : ' · docs touched ' + r.docsTouched + '/' + r.docsTotal
           + ' · ' + r.retrieveSubtasks + ' RETRIEVE subtasks · ' + r.retrievalMs + ' ms']));
     }
+    if (job.recovered) parts.push(h('span', {}, 'recovered: its first leader stopped, now run by node ' + job.currentLeader));
     if (job.orphanAdoptedBy != null) parts.push(h('span', {}, 'recorded as orphan by node ' + job.orphanAdoptedBy));
     if (job.error) parts.push(h('span', { className: 'text-rose' }, job.error));
     document.getElementById('job-status').replaceChildren(...parts);
@@ -137,7 +138,8 @@
       answer.replaceChildren(h('h3', { className: 'job-subhead' }, 'Answer'), h('p', {}, job.answer));
     } else if (job.status === 'ORPHANED') {
       answer.replaceChildren(h('h3', { className: 'job-subhead' }, 'Answer'),
-        h('p', { className: 'text-rose' }, 'The leader stopped before this job finished; completed subtasks are kept above. Recovery is not implemented.'));
+        h('p', { className: 'text-rose' }, 'The leader stopped before this job finished and no backup took it over '
+          + '(primary-backup replication was off, or the job had no backup); completed subtasks are kept above.'));
     } else {
       answer.replaceChildren();
     }

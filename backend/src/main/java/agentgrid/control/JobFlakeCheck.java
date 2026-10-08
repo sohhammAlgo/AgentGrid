@@ -113,7 +113,18 @@ public class JobFlakeCheck {
     // kill the leader mid-job: time to JOB_ORPHANED
     // =========================================================================
 
+    /** Measures the ORPHANED path, which is the behaviour with primary-backup replication OFF (Exp 8): off for this mode, restored after. */
     private boolean orphanTiming(int runs) throws Exception {
+        post("/api/replication/toggle", "{\"enabled\":false}");
+        System.out.println("primary-backup replication switched OFF for this mode (ORPHANED is its OFF behaviour); restored afterwards");
+        try {
+            return orphanTimingBody(runs);
+        } finally {
+            post("/api/replication/toggle", "{\"enabled\":true}");
+        }
+    }
+
+    private boolean orphanTimingBody(int runs) throws Exception {
         System.out.println("=====================================================================");
         System.out.println(" JobFlakeCheck orphan: kill the leader mid-job " + runs + " times -> " + BASE);
         System.out.println("=====================================================================");

@@ -693,7 +693,18 @@ public class BlackboardVerifier {
         }
     }
 
+    /** B9 expects the job to be ORPHANED, which is the behaviour with primary-backup replication OFF (Exp 8): switch it off for B9 and restore it. */
     private void b9() throws Exception {
+        post("/api/replication/toggle", "{\"enabled\":false}");
+        line("primary-backup replication switched OFF for B9 (ORPHANED is its OFF behaviour); restored afterwards");
+        try {
+            b9Body();
+        } finally {
+            post("/api/replication/toggle", "{\"enabled\":true}");
+        }
+    }
+
+    private void b9Body() throws Exception {
         header("B9 kill the leader mid-job (STRONG findings): findings posted before the kill stay readable on the survivors");
         ensureCluster();
         int leader = (int) num(map(get("/api/election")).get("leaderId"));

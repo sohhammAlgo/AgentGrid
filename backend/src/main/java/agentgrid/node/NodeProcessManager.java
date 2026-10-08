@@ -23,6 +23,7 @@ public class NodeProcessManager {
     private volatile String electionAlgorithm = "BULLY";
 
     private volatile boolean clockAutoSync = true;
+    private volatile boolean primaryBackup = Boolean.parseBoolean(System.getProperty("agentgrid.primaryBackup", "true"));
     /** The control plane's current membership: ports come from it and every node is launched with it. */
     private volatile java.util.function.Supplier<Membership> membership;
 
@@ -38,6 +39,11 @@ public class NodeProcessManager {
     /** Auto clock sync setting (periodic and rejoin Berkeley rounds) passed to nodes started from now on. */
     public void setClockAutoSync(boolean enabled) {
         this.clockAutoSync = enabled;
+    }
+
+    /** Primary-backup replication setting (Exp 8) passed to nodes started from now on. */
+    public void setPrimaryBackup(boolean enabled) {
+        this.primaryBackup = enabled;
     }
 
     /** Starts (or restarts) a current member with the current membership. */
@@ -120,7 +126,8 @@ public class NodeProcessManager {
                 "-cp",
                 classpath,
                 "-Dagentgrid.election.algorithm=" + electionAlgorithm,
-                "-Dagentgrid.clock.auto=" + clockAutoSync));
+                "-Dagentgrid.clock.auto=" + clockAutoSync,
+                "-Dagentgrid.primaryBackup=" + primaryBackup));
         if (launchMembership != null) {
             cmd.add("-Dagentgrid.membership=" + launchMembership.encode());
         }

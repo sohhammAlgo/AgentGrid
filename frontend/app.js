@@ -111,6 +111,9 @@
     bbMetrics: () => window.AgentGrid.getJson('/api/blackboard/metrics', 'Metrics lookup failed'),
     bbRead: (node, key) => window.AgentGrid.getJson(`/api/blackboard/read?node=${encodeURIComponent(node)}&key=${encodeURIComponent(key)}`, 'Read failed'),
     bbWrite: (node, key, value, mode) => postJson('/api/blackboard/write', { node, key, value, mode }, 'Write failed'),
+    // Exp 8: primary-backup replication of the orchestrator's job state.
+    getReplication: () => window.AgentGrid.getJson('/api/replication', 'Replication lookup failed'),
+    setReplication: (enabled) => postJson('/api/replication/toggle', { enabled }, 'Replication toggle failed'),
     getClockAuto: () => window.AgentGrid.getJson('/api/clock/auto', 'Auto-sync lookup failed'),
     setClockAuto: (enabled) => postJson('/api/clock/auto', { enabled }, 'Auto-sync change failed'),
     /**

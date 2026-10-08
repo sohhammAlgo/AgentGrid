@@ -33,6 +33,13 @@ public class Job implements Serializable {
     private String answer;
     private String error;
     private Integer orphanAdoptedBy;
+    // Primary-backup replication (Exp 8).
+    /** The job's state reached the backup before every step it took (so a new primary can resume it). */
+    private boolean recoverable;
+    /** A new primary resumed this job after its first primary stopped. */
+    private boolean recovered;
+    /** The node whose orchestrator is running it now, once it has moved off its first leader. */
+    private Integer recoveredBy;
     private final TreeMap<Integer, Integer> peakQueueDepth = new TreeMap<>();
     /** How RETRIEVE picks documents (SCAN unless the job asked for INDEX). */
     private final RetrievalPlan retrieval;
@@ -113,14 +120,17 @@ public class Job implements Serializable {
 
     synchronized void started(long trueMs) {
         status = JobStatus.RUNNING;
-        startTrueMs = trueMs;
+        if (startTrueMs == null) {   // a recovered job keeps the start of its first run
+            startTrueMs = trueMs;
+        }
     }
 
     synchronized void finished(JobStatus finalStatus, String answer, String error, long trueMs) {
         if (status == JobStatus.ORPHANED) {
             return;
         }
-        this.status = finalStatus;
+        // A job a new primary resumed ends RECOVERED, not COMPLETE; a FAILED one stays FAILED.
+        this.status = recovered && finalStatus == JobStatus.COMPLETE ? JobStatus.RECOVERED : finalStatus;
         this.answer = answer;
         this.error = error;
         this.endTrueMs = trueMs;
@@ -138,6 +148,26 @@ public class Job implements Serializable {
 
     synchronized void adoptedBy(int nodeId) {
         orphanAdoptedBy = nodeId;
+    }
+
+    /** True if the job's state is on the backup, so that a new primary can resume it. */
+    public synchronized boolean isRecoverable() { return recoverable; }
+
+    synchronized void setRecoverable(boolean recoverable) {
+        this.recoverable = recoverable;
+    }
+
+    public synchronized boolean isRecovered() { return recovered; }
+
+    /** The new primary took this job over from its first leader. */
+    synchronized void markRecovered(int nodeId) {
+        recovered = true;
+        recoveredBy = nodeId;
+    }
+
+    /** The node running the job now: its first leader, or the primary that recovered it. */
+    public synchronized int ownerNode() {
+        return recoveredBy != null ? recoveredBy : leaderNode;
     }
 
     synchronized void peakQueueDepth(Map<Integer, Integer> peaks) {
@@ -187,6 +217,9 @@ public class Job implements Serializable {
         m.put("consistency", consistency);
         m.put("status", status.name());
         m.put("leaderNode", leaderNode);
+        m.put("currentLeader", ownerNode());
+        m.put("recovered", recovered);
+        m.put("replicated", recoverable);
         m.put("submittedTrueMs", submittedTrueMs);
         m.put("startTrueMs", startTrueMs);
         m.put("endTrueMs", endTrueMs);

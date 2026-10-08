@@ -36,4 +36,21 @@ public interface OrchestratorService extends Remote {
     Job adoptOrphan(Job job) throws RemoteException;
 
     boolean isActive() throws RemoteException;
+
+    // ---- primary-backup replication (Exp 8) ----
+
+    /** Backup side: appends one replicated event; STALE_TERM if its term is below this node's, NEED_SYNC if it does not continue the log. */
+    ReplAck replicate(ReplEvent event) throws RemoteException;
+
+    /** Replaces this node's log with the primary's whole log (a new backup, or a backup that fell behind). */
+    ReplAck installSnapshot(long term, List<ReplEvent> log) throws RemoteException;
+
+    /** A copy of this node's log (a node elected primary catches up from the longest one). */
+    List<ReplEvent> fetchLog() throws RemoteException;
+
+    /** This node's replication state: role, term, last seq, backup. */
+    ReplState replicationState() throws RemoteException;
+
+    /** Turns primary-backup replication on or off on this node (the control plane pushes the cluster setting). */
+    void setPrimaryBackup(boolean enabled) throws RemoteException;
 }

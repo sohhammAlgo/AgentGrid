@@ -50,5 +50,11 @@ public interface NodeAgent extends AgentService {
 
     /** Epoch of the membership this node currently holds. */
     long getMembershipEpoch() throws RemoteException;
+
+    /** Highest primary term any dispatch to this node has carried (0 if none): the fence against a stale primary. */
+    long getHighestTerm() throws RemoteException;
+
+    /** Dispatches this node refused because their term was below the highest it had seen. */
+    long getStaleDispatchesRefused() throws RemoteException;
 }
 

@@ -88,6 +88,7 @@ public class ControlPlaneMain {
     private final MembershipManager membershipManager;
     private final IndexStore indexStore;
     private final MapReduceApi mapReduceApi;
+    private final ReplicationApi replicationApi;
     private final HttpServer server;
     private final Path frontendDir;
 
@@ -102,6 +103,9 @@ public class ControlPlaneMain {
         this.blackboardApi = new BlackboardApi(config, monitor);
         this.monitor.setJobDirectory(jobDirectory);
         this.membershipManager = new MembershipManager(config, processManager, monitor, eventLog, jobDirectory);
+        // Exp 8: primary-backup replication (default ON); JobDirectory recovers instead of orphaning while it is on.
+        this.replicationApi = new ReplicationApi(config, monitor, eventLog, processManager);
+        this.jobDirectory.setReplication(replicationApi::isEnabled);
 
         // Exp 7: the MapReduce index (loaded now if mapreduce/out/inverted_index.json exists).
         Path repoRoot = MapReduceApi.resolveRepoRoot();
@@ -185,6 +189,7 @@ public class ControlPlaneMain {
         server.createContext("/api/blackboard", this::handleBlackboard);
         server.createContext("/api/blackboard/write", this::handleBlackboardWrite);
         server.createContext("/api/mapreduce", this::handleMapReduce);
+        server.createContext("/api/replication", this::handleReplication);
         server.createContext("/", this::handleStatic);
     }
 
@@ -204,7 +209,8 @@ public class ControlPlaneMain {
                 Map.of("id", "exp4", "title", "Election"),
                 Map.of("id", "exp5", "title", "Blackboard"),
                 Map.of("id", "exp6", "title", "Load Balancing"),
-                Map.of("id", "exp7", "title", "MapReduce")
+                Map.of("id", "exp7", "title", "MapReduce"),
+                Map.of("id", "exp8", "title", "Replication")
         );
         sendJsonResponse(exchange, 200, modules);
     }
@@ -986,6 +992,87 @@ public class ControlPlaneMain {
                     sendJsonResponse(exchange, 200, indexStore.view());
                 }
                 default -> sendError(exchange, 404, "Unknown mapreduce endpoint: " + path);
+            }
+        } catch (JobDirectory.ApiException e) {
+            sendError(exchange, e.getStatus(), e.getMessage());
+        }
+    }
+
+    // =========================================================================
+    // PRIMARY-BACKUP REPLICATION (Exp 8)
+    // =========================================================================
+
+    /**
+     * GET /api/replication: {enabled, primary, backup, term, lastSeq, backupLastSeq, lag, noBackup, warning, nodes, ...};
+     * POST /api/replication/toggle {"enabled": bool}; GET /api/replication/log?node=N&amp;from=S;
+     * POST /api/replication/test/stale {"node": n, "term": t, "event": true} (only with -Dagentgrid.testHooks=true;
+     * "event": false tests the stale dispatch only).
+     */
+    private void handleReplication(HttpExchange exchange) throws IOException {
+        String path = exchange.getRequestURI().getPath();
+        String method = exchange.getRequestMethod();
+        try {
+            switch (path) {
+                case "/api/replication", "/api/replication/" -> {
+                    if (!method.equalsIgnoreCase("GET")) {
+                        sendMethodNotAllowed(exchange);
+                        return;
+                    }
+                    sendJsonResponse(exchange, 200, replicationApi.view());
+                }
+                case "/api/replication/toggle" -> {
+                    if (!method.equalsIgnoreCase("POST")) {
+                        sendMethodNotAllowed(exchange);
+                        return;
+                    }
+                    if (!validatePostHeaders(exchange)) return;
+                    Map<String, Object> req = readJsonBody(exchange);
+                    if (req == null) return;
+                    if (!(req.get("enabled") instanceof Boolean)) {
+                        sendError(exchange, 400, "Field 'enabled' must be true or false");
+                        return;
+                    }
+                    replicationApi.toggle((Boolean) req.get("enabled"));
+                    sendJsonResponse(exchange, 200, replicationApi.view());
+                }
+                case "/api/replication/log" -> {
+                    if (!method.equalsIgnoreCase("GET")) {
+                        sendMethodNotAllowed(exchange);
+                        return;
+                    }
+                    String node = queryParam(exchange, "node");
+                    String from = queryParam(exchange, "from");
+                    if (node == null) {
+                        sendError(exchange, 400, "Query parameter 'node' is required");
+                        return;
+                    }
+                    try {
+                        sendJsonResponse(exchange, 200, replicationApi.log(Integer.parseInt(node.trim()),
+                                from == null ? 0 : Long.parseLong(from.trim())));
+                    } catch (NumberFormatException e) {
+                        sendError(exchange, 400, "Parameters 'node' and 'from' must be integers");
+                    }
+                }
+                case "/api/replication/test/stale" -> {
+                    if (!Boolean.getBoolean("agentgrid.testHooks")) {
+                        sendError(exchange, 404, "Test hooks are disabled (start the control plane with -Dagentgrid.testHooks=true)");
+                        return;
+                    }
+                    if (!method.equalsIgnoreCase("POST")) {
+                        sendMethodNotAllowed(exchange);
+                        return;
+                    }
+                    if (!validatePostHeaders(exchange)) return;
+                    Map<String, Object> req = readJsonBody(exchange);
+                    if (req == null) return;
+                    if (!(req.get("node") instanceof Number) || !(req.get("term") instanceof Number)) {
+                        sendError(exchange, 400, "Fields 'node' and 'term' must be integers");
+                        return;
+                    }
+                    sendJsonResponse(exchange, 200, replicationApi.staleWrite(((Number) req.get("node")).intValue(),
+                            ((Number) req.get("term")).longValue(), !Boolean.FALSE.equals(req.get("event"))));
+                }
+                default -> sendError(exchange, 404, "Unknown replication endpoint: " + path);
             }
         } catch (JobDirectory.ApiException e) {
             sendError(exchange, e.getStatus(), e.getMessage());

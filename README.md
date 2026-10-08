@@ -336,7 +336,7 @@ malformed or invalid input returns 400. Errors are `{"error": "...", "status": N
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| GET | `/api/modules` | | Dashboard modules: exp1–exp7 |
+| GET | `/api/modules` | | Dashboard modules: exp1–exp8 |
 | GET | `/api/cluster` | | Per current member: `id, port, up, poolSize, weight, epoch` (the membership epoch it reports), `queueDepth, lamport, clockOffsetMs, bindings, leaderView, isLeader` |
 | GET | `/api/cluster?view=membership` | | `{epoch, size, quorum, members: [{id, port, poolSize, weight}], nextId, minMembers, maxMembers, changeInProgress, processes, nodes}` (`nodes` = the array above) |
 | POST | `/api/cluster/nodes` | `{"poolSize": 4, "weight": 4}` (both optional) | Adds a node (see Elastic membership): `{node, port, poolSize, weight, readyMs, snapshotSource, membership, pushed, clockRound, totalMs}`; 409 at 9 members or during another change; 500 with the reason if the node could not be started, came up or pulled its snapshot (membership unchanged) |
@@ -361,20 +361,26 @@ malformed or invalid input returns 400. Errors are `{"error": "...", "status": N
 | POST | `/api/election/start` | `{"node": 1}` | Starts an election on one node |
 | POST | `/api/jobs` | `{"query": "...", "policy": "ROUND_ROBIN", "consistency": "EVENTUAL", "retrieval": "SCAN"}` (policy `LEAST_LOADED` / `WEIGHTED`; consistency `STRONG`, default `EVENTUAL`; retrieval `INDEX`, default `SCAN`) | `{jobId, leader, consistency, retrieval, status}`; 503 if no leader is agreed; for `INDEX`, 409 if there is no MapReduce index ("run MapReduce first") or it is stale ("re-run MapReduce") |
 | GET | `/api/jobs` | | Recent jobs: `jobId, query, policy, status, leaderNode, makespanMs, subtasks, completedSubtasks, retrieval {mode, docsTotal, docsTouched, retrieveSubtasks, retrievalMs}, ...` |
-| GET | `/api/jobs/{id}` | | The task graph: status (`QUEUED, RUNNING, COMPLETE, FAILED, ORPHANED`), answer, per-node subtask counts and peak queue depth, `retrieval`, and every stage's subtasks with node, status and dispatch / result / completion Lamport times |
+| GET | `/api/jobs/{id}` | | The task graph: status (`QUEUED, RUNNING, COMPLETE, FAILED, ORPHANED, RECOVERED`), `leaderNode` (the first leader) and `currentLeader` (the node running it now), `recovered`, `replicated`, answer, per-node subtask counts and peak queue depth, `retrieval`, and every stage's subtasks with node, status and dispatch / result / completion Lamport times |
 | POST | `/api/mapreduce/run` | `{"job": "index", "partitions": 4, "compare": false}` (job `wordcount`; partitions 1–16) | Runs `mapreduce/exp7_mapreduce.py --json` (see MapReduce below) and returns its JSON: `job, partitions, stages {mapPairs, pairsAfterCombine, reduceKeys, shuffleRecordsWithCombiner, shuffleRecordsWithout, ...}, timings {local4Ms, local1Ms, speedup}, topTerms, topDocsForQuery, verified, checks, docCount, builtAt, fingerprint`, plus `wallMs` and the reloaded `index`. 409 while a run is in progress; 503 with the reason (missing interpreter, missing pyspark, 300 s timeout, non-zero exit; with the last 20 stderr lines) |
 | GET | `/api/mapreduce/last` | | The last successful run's result; 404 if none since the control plane started |
 | GET | `/api/mapreduce/status` | | `{running, current {job, partitions, compare, elapsedMs}, hasLast, lastFailure, pythonCommand, script, timeoutSeconds, index}` |
 | GET | `/api/mapreduce/index` | | `{available, fingerprintOk, stale, usable, reason, terms, postings, documents, builtAt, corpusDocuments, fingerprint, corpusFingerprint, file}` |
 | POST | `/api/mapreduce/index/test-hook` | `{"corruptFingerprint": true}` | Test only (404 unless the control plane runs with `-Dagentgrid.testHooks=true`): replaces the expected corpus fingerprint so the index reads as stale; `false` restores it |
+| GET | `/api/replication` | | `{enabled, primary, backup, term, lastSeq, backupLastSeq, lag, noBackup, ready, warning, nodes: [{node, up, role, term, lastSeq, logEvents, staleRejected, enabled}], staleRejected, recoveredJobs}`; `warning` is `no backup: ...`, `replication is OFF: ...`, `no agreed leader`, or null |
+| POST | `/api/replication/toggle` | `{"enabled": false}` | Switches primary-backup replication on or off for the whole cluster (pushed to every node, passed to nodes started later); returns the new view |
+| GET | `/api/replication/log?node=N&from=S` | | One node's replicated log as summaries `{seq, term, jobId, type, subtaskId, digest}` with seq above `from`, plus its `term` and `lastSeq`; the digest covers the whole event, so two replicas hold the same log iff their lists are equal |
+| POST | `/api/replication/test/stale` | `{"node": 4, "term": 2, "event": true}` | Test only (404 unless `-Dagentgrid.testHooks=true`): plays a stale primary against one node, sending its orchestrator a replicated event and its worker a subtask carrying that (lower) term; returns what each answered. `"event": false` tests the dispatch only |
 
 ### Jobs
 A job runs on the orchestrator of the elected leader: RETRIEVE (keyword match, fanned out
 over 20 corpus chunks) -> RANK (TF-IDF) -> SUMMARIZE (extractive, fanned out over the 20
 best documents) -> SYNTHESIZE (one merged answer, each sentence citing its document).
 Each stage starts after the previous one completes. Subtasks are routed with the submitted
-`agentgrid.balancer` policies. If the leader is killed mid-job, the job becomes ORPHANED
-(its completed subtasks are kept) and the new leader accepts new jobs; it is not resumed.
+`agentgrid.balancer` policies. If the leader is killed mid-job with primary-backup replication ON
+(the default, see Exp 8) the backup resumes the job and it ends RECOVERED. With replication OFF, or if
+the job had no backup, the job becomes ORPHANED (its completed subtasks are kept) and the new leader
+accepts new jobs; it is not resumed.
 
 Each worker that runs a SUMMARIZE subtask posts its finding to its own blackboard replica as
 `job/<jobId>/finding/<subtaskId>`, and the SYNTHESIZE worker posts the answer as
@@ -523,6 +529,98 @@ orchestrator's workers and the WEIGHTED weights, the election tracker, and the d
 - Node RMI stubs advertise `127.0.0.1` (`java.rmi.server.hostname`): all nodes run on this machine.
   With the default (the LAN IP), a Wi-Fi address change during a run broke every node-to-node call (FIXES.md, Fix W).
 
+### Primary-backup replication of job state (Exp 8)
+**Problem.** A job's live state (its task graph, the subtasks in flight, the queue) existed only in the
+leader's orchestrator, so a leader that died took its running jobs with it: they were marked ORPHANED.
+
+**What it does.** The elected leader is the **primary**. The **backup** is the live member with the next
+highest id below it (the node the dashboard already shows as BACKUP); it is recomputed whenever the
+membership or the live set changes. Every job state change is an event `{seq, term, jobId, type, payload}`
+with type `JOB_SUBMITTED`, `SUBTASK_DISPATCHED`, `SUBTASK_DONE`, `JOB_DONE` or `JOB_FAILED`; `seq` grows
+by 1 and `term` is the term of the primary that wrote it. The primary appends the event to its log, sends it
+to the backup over RMI and **waits for the ack before the job moves on** (a dispatch is replicated before
+the subtask leaves, a result before it is applied). With no live backup the primary carries on
+unreplicated and the API and dashboard show `no backup`; it never blocks the cluster.
+
+**Failover.** When the failure detector declares the primary dead and a new leader is elected, that node
+(normally the backup): (1) asks every live member for its log position and, if a peer's log is longer (last
+term, then last seq), copies it; (2) starts a new term, the highest term any peer reported plus one;
+(3) replays its log to rebuild the jobs; (4) queues the unfinished ones, marked recovered, ahead of new
+work. The runner resumes each job: stages whose subtasks all completed are skipped, subtasks that were
+DISPATCHED but not DONE (or never dispatched) are sent again. A job that finished after a failover ends
+**RECOVERED** instead of COMPLETE (a distinct colour in the dashboard); `JOB_RECOVERING` is recorded by the
+new primary. The control plane follows the job to the new primary and does not orphan it; if no new primary
+reports the job within 20 s it is orphaned after all.
+
+**Fencing.** Every replicated event, snapshot and dispatch carries the term. A node that sees a term below
+the highest it has seen refuses it (`STALE_TERM`; a worker refuses a dispatch with
+`StaleTermException`), and a primary that is refused, or that receives a higher term, steps down and leaves
+its running jobs to the new primary. A node that is elected after a restart has an empty log: it copies the
+current one before it serves, so nothing is lost and its term is higher than any before.
+
+**Idempotence.** A subtask re-dispatched after a failover is keyed by `jobId + subtaskId`: the replay and the
+runner ignore a second `SUBTASK_DONE` for a subtask that is already COMPLETE, so it is counted once
+(its blackboard finding is written under the same key, last-writer-wins).
+
+**Toggle.** `primaryBackup` (default ON), from the dashboard's Replication tab, `POST /api/replication/toggle`
+or `-Dagentgrid.primaryBackup=false` on the control plane. OFF is the old behaviour exactly: no log, no
+fencing (term 0 is never refused), a job whose leader dies is ORPHANED. Switching OFF clears the logs. A job
+that started while replication was off is not replicated and cannot be recovered. JobVerifier J4,
+BlackboardVerifier B9 and `JobFlakeCheck orphan` test the ORPHANED path, so each switches replication off
+for its kill and restores it afterwards.
+
+**Demo.** Open the dashboard's **Replication** tab: primary and backup cards, term, primary and backup last
+seq, lag, the switch and a live log of replication events. Submit a job in the Job Console and click Kill
+on the leader's card while it runs: the job ends RECOVERED, run by the new primary, and the tab shows the new
+term and a new backup. Switch replication off and repeat: the job ends ORPHANED. From a shell:
+```bash
+curl http://127.0.0.1:8080/api/replication
+curl -X POST -H "Content-Type: application/json" -d '{"enabled": false}' http://127.0.0.1:8080/api/replication/toggle
+java -Dagentgrid.testHooks=true -cp build/classes agentgrid.control.ControlPlaneMain   # then, in another shell:
+java -cp build/classes agentgrid.control.ReplicationVerifier                            # R1-R6
+```
+
+**Cost (measured: 10 interleaved runs per mode, 5 nodes on one machine, replication toggled between runs).** A
+42-subtask job logs 86 events, each one RMI round trip to the backup. Median makespan with replication OFF vs ON:
+WEIGHTED 688 ms vs 720 ms (+31 ms, +5%), ROUND_ROBIN 1007 ms vs 1034 ms (+27 ms, +3%). That is on localhost; events are
+sent one at a time, so over a real network the cost grows with 86 times the round-trip time.
+
+**Limits:**
+- **One backup, not a quorum.** The log is on the primary and one backup. If both die the jobs are lost; there
+  is no majority agreement on the log, and a backup that is lagging when the primary dies resumes from what it has
+  (a subtask may be re-run).
+- **The log is in memory.** It survives the death of the primary or the backup, not of both, and not a control-plane
+  restart (jobs the control plane has not seen finish are lost with it). It is never trimmed, so a long-running
+  cluster grows (about 90 events per job).
+- **Synchronous replication adds latency:** one RMI round trip per event, about 2 events per subtask (see Cost).
+- **Bully re-elects the highest id.** The old primary, once restarted, is elected again; it first copies the log from
+  the interim primary and takes a newer term, and the interim primary becomes its backup. It does not stay a plain
+  member. The stale-write checks are therefore made with a test hook (a lower-term event and dispatch), not with
+  a live zombie primary; the only failures injected are process kills, never a network partition.
+- **Workers learn terms from dispatches.** A freshly restarted worker has not seen a term yet and accepts a lower one
+  until the first dispatch of the current primary reaches it.
+- **Only the orchestrator's job state is replicated.** The blackboard keeps its own replication (Exp 5); a job's
+  workers, the control plane's directory and the election are not replicated by this.
+- A job needs a backup that has acknowledged its events to be recoverable; a job submitted while there is no
+  backup runs, but is ORPHANED if its primary dies.
+- A control-plane monitor cycle is up to 1 s: a new primary appears in `/api/replication` once the election has
+  agreed (about 2 s after a kill), and the job finishes as soon as it has been re-run.
+
+**Tested (ReplicationVerifier R1-R6, plus by hand):** identical logs on primary and backup after a job; a leader
+killed mid-job with a SCAN job, with an INDEX + STRONG job (22/40 documents, 21/21 findings stored) and with a second
+job still QUEUED behind it (all RECOVERED, same answer as a run without a failure, no subtask counted twice); the
+OFF path (ORPHANED); the old primary restarting; killing the backup, then every node but the primary (the "no backup"
+warning, the job still completes), then bringing them back; adding a node and removing the backup and the primary;
+the dashboard tab (switch, a kill mid-job with replication ON and OFF, RECOVERED and ORPHANED side by side).
+
+**Not tested:**
+- A network partition or a primary that is paused but alive (only process kills were injected); a stale primary is
+  exercised through the test hook only.
+- Both the primary and the backup dying, and a second failure while a recovered job is still running.
+- The RING election algorithm with replication (the backup rule is the same, but only BULLY was run).
+- More than 9 members, or logs of many thousands of events (the snapshot sent to a new backup grows with the log).
+- Several concurrent control-plane clients toggling the switch at once.
+
 ### Verifiers
 With the control plane running, from `backend/`:
 ```bash
@@ -531,6 +629,7 @@ java -cp build/classes agentgrid.control.JobVerifier        # Phase 4: jobs and 
 java -cp build/classes agentgrid.control.BlackboardVerifier # Phase 5: replicated blackboard (B1-B12)
 java -cp build/classes agentgrid.control.MembershipVerifier # elastic membership: add / remove nodes (M1-M13)
 java -cp build/classes agentgrid.control.MapReduceVerifier  # Exp 7: MapReduce runs and INDEX retrieval (MR1-MR6)
+java -cp build/classes agentgrid.control.ReplicationVerifier # Exp 8: primary-backup replication (R1-R6; needs -Dagentgrid.testHooks=true)
 java -cp build/classes agentgrid.control.RestartStress      # restart all 5 nodes at once, 10 cycles
 java -cp build/classes agentgrid.control.JobFlakeCheck      # 30 jobs, no false ORPHANED
 java -cp build/classes agentgrid.control.JobFlakeCheck orphan 5  # kill the leader mid-job: time to JOB_ORPHANED
@@ -545,6 +644,7 @@ The verifiers other than MembershipVerifier expect the default 5 members (ids 1-
 against a fresh control plane. MembershipVerifier also needs a fresh one, and leaves a 5-member
 cluster whose ids are not 1-5 (it removes nodes 4 and 5 to test the minimum-size rule, and ids
 are never reused).
+ReplicationVerifier needs `-Dagentgrid.testHooks=true` on the control plane (R4 plays a stale primary); R6 adds and removes nodes and leaves a 4-member cluster.
 MapReduceVerifier needs a control plane whose `pythonCommand` has pyspark. MR3 runs only when the control
 plane was started without `mapreduce/out/inverted_index.json`, and MR5 only with `-Dagentgrid.testHooks=true`;
 otherwise they are reported as SKIP with the reason:

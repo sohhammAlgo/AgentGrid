@@ -2,6 +2,7 @@ package agentgrid.orchestrator;
 
 import agentgrid.balancer.LoadBalancer;
 import agentgrid.common.Result;
+import agentgrid.common.StaleTermException;
 import agentgrid.common.Subtask;
 
 import java.rmi.RemoteException;
@@ -41,6 +42,23 @@ public final class JobRunner {
         void receive(long lamport);
     }
 
+    /**
+     * Primary-backup replication of the job's state (Exp 8). The orchestrator installs one when it
+     * is a primary; the baseline probe runs without. log() returns only after the backup has the
+     * event (or at once if there is no backup or replication is off), so the job never moves on
+     * ahead of its replica.
+     */
+    public interface Replication {
+        /** Term to stamp on dispatches; 0 when replication is off. */
+        long term();
+
+        /** Logs one job state change and waits for the backup's ack. */
+        void log(ReplEvent.Type type, Job job, Map<String, Object> payload);
+
+        /** A worker or backup refused this primary's term: it has been replaced. */
+        void fenced(long currentTerm);
+    }
+
     public static final int RETRIEVE_FANOUT = 20;
     public static final int SUMMARIZE_FANOUT = 20;
     public static final int MAX_ATTEMPTS = 3;
@@ -52,6 +70,7 @@ public final class JobRunner {
     private final ExecutorService pool;
     private volatile boolean aborted;
     private volatile Thread runningThread;
+    private volatile Replication replication;
 
     /**
      * @param leastLoadedView     load view for LEAST_LOADED; the orchestrator passes NORMALIZED_IN_FLIGHT
@@ -70,6 +89,32 @@ public final class JobRunner {
             t.setDaemon(true);
             return t;
         });
+    }
+
+    public void setReplication(Replication replication) {
+        this.replication = replication;
+    }
+
+    private long term() {
+        Replication r = replication;
+        return r == null ? 0L : r.term();
+    }
+
+    private void replicate(ReplEvent.Type type, Job job, Map<String, Object> payload) {
+        Replication r = replication;
+        if (r != null && !aborted) {
+            r.log(type, job, payload);
+        }
+    }
+
+    /** The StaleTermException a failed RMI call carries (RMI wraps a server-side RemoteException in a ServerException). */
+    private static StaleTermException staleOf(Throwable t) {
+        for (Throwable c = t; c != null; c = c.getCause() == c ? null : c.getCause()) {
+            if (c instanceof StaleTermException) {
+                return (StaleTermException) c;
+            }
+        }
+        return null;
     }
 
     /** Stops the running job: no more dispatches, late results are ignored. */
@@ -192,6 +237,14 @@ public final class JobRunner {
                 }
             }
             job.peakQueueDepth(peaks);
+            if (aborted) {
+                return job.getStatus();   // this primary was replaced; the new one owns the job
+            }
+            Map<String, Object> done = new LinkedHashMap<>();
+            done.put("answer", answer);
+            done.put("finalStatus", job.isRecovered() ? "RECOVERED" : "COMPLETE");
+            done.put("recoveredBy", job.ownerNode());
+            replicate(ReplEvent.Type.JOB_DONE, job, done);
             job.finished(JobStatus.COMPLETE, answer, null, System.currentTimeMillis());
             return job.getStatus();
         } catch (InterruptedException e) {
@@ -230,6 +283,12 @@ public final class JobRunner {
 
     private JobStatus fail(Job job, String reason) {
         recordBlackboardSummary(job);
+        if (aborted) {
+            return job.getStatus();
+        }
+        Map<String, Object> failed = new LinkedHashMap<>();
+        failed.put("error", reason);
+        replicate(ReplEvent.Type.JOB_FAILED, job, failed);
         job.finished(JobStatus.FAILED, null, reason, System.currentTimeMillis());
         return job.getStatus();
     }
@@ -242,19 +301,42 @@ public final class JobRunner {
         JobStage stage = job.getGraph().stage(type);
         List<JobStage.SubtaskState> states = new ArrayList<>();
         long start = System.currentTimeMillis();
+        boolean resumed;
         synchronized (job) {
-            stage.started(start);
-            for (int i = 0; i < inputs.size(); i++) {
-                states.add(stage.add(type.name().toLowerCase(Locale.ROOT) + "-" + (i + 1), inputs.get(i)[0]));
+            // A job a new primary recovered already holds the subtasks its log recorded for this
+            // stage: they are reused by id, never added twice.
+            resumed = stage.getStatus() != JobStage.Status.PENDING;
+            if (!resumed) {
+                stage.started(start);
             }
+            for (int i = 0; i < inputs.size(); i++) {
+                String id = type.name().toLowerCase(Locale.ROOT) + "-" + (i + 1);
+                JobStage.SubtaskState existing = stage.find(id);
+                states.add(existing != null ? existing : stage.add(id, inputs.get(i)[0]));
+            }
+        }
+        List<Integer> todo = new ArrayList<>();
+        synchronized (job) {
+            for (int i = 0; i < states.size(); i++) {
+                if (states.get(i).getStatus() != JobStage.SubtaskStatus.COMPLETE) {
+                    todo.add(i);
+                }
+            }
+        }
+        if (resumed && todo.isEmpty()) {
+            synchronized (job) {
+                stage.finished(true, System.currentTimeMillis());   // finished before the failover
+            }
+            return true;
         }
         Map<String, Object> f = fields(job, type);
         f.put("subtasks", inputs.size());
-        sink.record("STAGE_STARTED", job.getJobId() + " " + type + " started with " + inputs.size() + " subtasks", f);
+        sink.record("STAGE_STARTED", job.getJobId() + " " + type + " " + (resumed ? "resumed" : "started") + " with "
+                + inputs.size() + " subtasks" + (resumed ? ", " + todo.size() + " left to run" : ""), f);
 
-        if (!inputs.isEmpty()) {
-            StageDispatch dispatch = new StageDispatch(job, type, cluster.liveWorkers(), policy, inputs.size());
-            for (int i = 0; i < inputs.size(); i++) {
+        if (!todo.isEmpty()) {
+            StageDispatch dispatch = new StageDispatch(job, type, cluster.liveWorkers(), policy, todo.size());
+            for (int i : todo) {
                 dispatch.dispatch(states.get(i), inputs.get(i)[1], i, 1);
             }
             dispatch.await();
@@ -377,13 +459,31 @@ public final class JobRunner {
                 synchronized (job) {
                     state.dispatched(worker.getNodeId(), carried, System.currentTimeMillis());
                 }
+                // Replicate the dispatch before the subtask leaves: the backup must know it may be in flight.
+                if (replication != null) {
+                    Map<String, Object> ev = new LinkedHashMap<>();
+                    ev.put("stage", type.name());
+                    ev.put("subtaskId", state.getSubtaskId());
+                    ev.put("input", state.getInput());
+                    ev.put("node", worker.getNodeId());
+                    ev.put("attempt", attempt);
+                    ev.put("dispatchLamport", carried);
+                    ev.put("payload", payload);
+                    replicate(ReplEvent.Type.SUBTASK_DISPATCHED, job, ev);
+                    if (aborted) {
+                        worker.dispatchEnded();
+                        done.countDown();
+                        return;
+                    }
+                }
             }
             WorkerNode w = worker;
             long sent = carried;
+            long termSent = term();
             boolean postedFinding = Payload.decode(payload).get("bbKey") != null;
             pool.submit(() -> {
                 try {
-                    Result r = w.execute(new Subtask(job.getJobId(), state.getSubtaskId(), type, payload, sent));
+                    Result r = w.execute(new Subtask(job.getJobId(), state.getSubtaskId(), type, payload, sent, termSent));
                     if (aborted) {
                         done.countDown();
                         return;
@@ -407,6 +507,46 @@ public final class JobRunner {
                     if (wrapped) {
                         output = envelope.get("result");
                     }
+                    boolean duplicate;
+                    synchronized (job) {
+                        // Keyed by jobId + subtaskId: a result for a subtask that already completed
+                        // (a re-dispatch after a failover that raced with the first run) is not counted.
+                        duplicate = state.getStatus() == JobStage.SubtaskStatus.COMPLETE;
+                    }
+                    if (duplicate) {
+                        done.countDown();
+                        return;
+                    }
+                    if (replication != null) {
+                        Map<String, Object> ev = new LinkedHashMap<>();
+                        ev.put("stage", type.name());
+                        ev.put("subtaskId", state.getSubtaskId());
+                        ev.put("node", w.getNodeId());
+                        ev.put("resultLamport", r.getLamportTimestamp());
+                        ev.put("completeLamport", complete);
+                        ev.put("ok", r.isSuccess());
+                        ev.put("output", output);
+                        if (wrapped) {
+                            ev.put("bbKey", envelope.get("bbKey"));
+                            ev.put("bbStatus", envelope.get("bbStatus"));
+                            Long lat = longOrNull(envelope.get("bbLatencyMs"));
+                            if (lat != null) ev.put("bbLatencyMs", lat);
+                            Long stamp = longOrNull(envelope.get("bbStamp"));
+                            if (stamp != null) ev.put("bbStamp", stamp);
+                            Integer writer = intOrNull(envelope.get("bbWriter"));
+                            if (writer != null) ev.put("bbWriter", writer);
+                            ev.put("bbMessage", envelope.get("bbMessage"));
+                        } else if (postedFinding && r.isSuccess()) {
+                            ev.put("bbKey", Payload.decode(payload).get("bbKey"));
+                            ev.put("bbStatus", "FAILED");
+                            ev.put("bbMessage", "the worker returned no blackboard outcome");
+                        }
+                        replicate(ReplEvent.Type.SUBTASK_DONE, job, ev);
+                        if (aborted) {
+                            done.countDown();
+                            return;
+                        }
+                    }
                     synchronized (job) {
                         state.completed(r.getLamportTimestamp(), complete, System.currentTimeMillis(),
                                 output, r.isSuccess());
@@ -422,6 +562,17 @@ public final class JobRunner {
                     }
                     done.countDown();
                 } catch (RemoteException e) {
+                    StaleTermException stale = staleOf(e);
+                    if (stale != null) {
+                        // The worker has seen a newer primary: this one is stale. Stop; the new primary owns the job.
+                        aborted = true;
+                        Replication r = replication;
+                        if (r != null) {
+                            r.fenced(stale.getCurrentTerm());
+                        }
+                        done.countDown();
+                        return;
+                    }
                     down.add(w.getNodeId());
                     cluster.forget(w.getNodeId());
                     if (!aborted && attempt < MAX_ATTEMPTS) {

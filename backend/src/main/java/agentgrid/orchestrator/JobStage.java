@@ -146,6 +146,16 @@ public class JobStage implements Serializable {
         return s;
     }
 
+    /** The subtask with this id, or null (a recovered job's stage already holds the subtasks the log recorded). */
+    SubtaskState find(String subtaskId) {
+        for (SubtaskState s : subtasks) {
+            if (s.getSubtaskId().equals(subtaskId)) {
+                return s;
+            }
+        }
+        return null;
+    }
+
     void started(long trueMs) {
         status = Status.RUNNING;
         startTrueMs = trueMs;

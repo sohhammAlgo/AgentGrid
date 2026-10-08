@@ -2,6 +2,7 @@ package agentgrid.node;
 
 import agentgrid.clock.LamportClock;
 import agentgrid.common.Result;
+import agentgrid.common.StaleTermException;
 import agentgrid.common.Subtask;
 import agentgrid.orchestrator.Corpus;
 import agentgrid.orchestrator.Payload;
@@ -51,6 +52,11 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
     private transient volatile boolean syncSeen;
     private transient volatile ClusterBlackboard blackboard;
     private transient volatile ClusterConfig clusterConfig;
+    // Exp 8 fencing: the highest primary term a dispatch has carried; a lower one is a stale primary's.
+    private final transient Object termLock = new Object();
+    private transient long highestTerm;
+    private final transient java.util.concurrent.atomic.AtomicLong staleDispatches =
+            new java.util.concurrent.atomic.AtomicLong();
 
     public NodeAgentService(String agentId) throws RemoteException {
         this(agentId, DEFAULT_POOL_SIZE);
@@ -102,6 +108,7 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
      */
     @Override
     public Result execute(Subtask subtask) throws RemoteException {
+        checkTerm(subtask);
         enqueued();
         Future<Result> future;
         try {
@@ -137,6 +144,9 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
      */
     @Override
     public List<Result> executeBatch(List<Subtask> subtasks) throws RemoteException {
+        for (Subtask subtask : subtasks) {
+            checkTerm(subtask);
+        }
         List<Future<Result>> futures = new ArrayList<>(subtasks.size());
 
         for (Subtask subtask : subtasks) {
@@ -168,6 +178,39 @@ public class NodeAgentService extends UnicastRemoteObject implements NodeAgent {
             }
         }
         return results;
+    }
+
+    /**
+     * Fencing: a subtask carries the term of the primary that dispatched it. The worker remembers the
+     * highest term it has seen and refuses a lower one, so a primary that was replaced cannot keep
+     * driving work (term 0 means "not fenced" and is always accepted).
+     */
+    private void checkTerm(Subtask subtask) throws StaleTermException {
+        long t = subtask.getTerm();
+        if (t <= 0) {
+            return;
+        }
+        synchronized (termLock) {
+            if (t < highestTerm) {
+                staleDispatches.incrementAndGet();
+                System.out.println("[" + agentId + "] REFUSED stale dispatch " + subtask.getSubtaskId() + " (term " + t
+                        + " < " + highestTerm + ")");
+                throw new StaleTermException(t, highestTerm, "dispatch of " + subtask.getSubtaskId());
+            }
+            highestTerm = t;
+        }
+    }
+
+    @Override
+    public long getHighestTerm() throws RemoteException {
+        synchronized (termLock) {
+            return highestTerm;
+        }
+    }
+
+    @Override
+    public long getStaleDispatchesRefused() throws RemoteException {
+        return staleDispatches.get();
     }
 
     private void enqueued() {

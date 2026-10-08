@@ -26,6 +26,11 @@ import java.util.Set;
  * JOB_ORPHANED. Until another leader is agreed that ORPHANED is provisional: if the original
  * leader is still the agreed one and reports the job COMPLETE or FAILED, that outcome wins.
  * A demoted leader orphans its own jobs.
+ *
+ * With primary-backup replication ON (Exp 8) a job whose state reached the backup is not orphaned
+ * when its leader goes: the new primary resumes it from the replicated log, and this directory
+ * follows the job to that node. Only if no new primary reports the job within RECOVERY_WAIT_MS is it
+ * orphaned as above. A job that was not replicated (no backup) is orphaned at once, as before.
  */
 public class JobDirectory {
 
@@ -59,9 +64,20 @@ public class JobDirectory {
     /** Jobs this directory orphaned while their leader was still the agreed one; not yet final. */
     private final Set<String> provisional = new HashSet<>();
 
+    /** How long a replicated job waits for a new primary to take it over before it is orphaned after all. */
+    static final long RECOVERY_WAIT_MS = 20000;
+    /** The cluster's primary-backup setting (Exp 8); off until the control plane installs it. */
+    private volatile java.util.function.BooleanSupplier replication = () -> false;
+    // Used by onCycle (the monitor thread) only: when each job's owner was first seen gone.
+    private final Map<String, Long> recoveryWaitSince = new HashMap<>();
+
     public JobDirectory(ClusterConfig config, ClusterMonitor monitor) {
         this.config = config;
         this.monitor = monitor;
+    }
+
+    public void setReplication(java.util.function.BooleanSupplier replication) {
+        this.replication = replication;
     }
 
     /** True while any known job is QUEUED or RUNNING (the monitor then polls fast). */
@@ -92,7 +108,9 @@ public class JobDirectory {
         Job snapshot;
         try {
             OrchestratorService orchestrator = orchestratorOf(leaderId);
-            jobId = monitor.call(() -> orchestrator.submit(query, policy, consistency, retrieval));
+            // Longer than the monitor's 700 ms: a submit replicates to the backup first, and a newly
+            // elected leader may still be promoting itself (it waits up to 5 s before refusing).
+            jobId = monitor.call(() -> orchestrator.submit(query, policy, consistency, retrieval), 6000);
             snapshot = monitor.call(() -> orchestrator.getJob(jobId));
         } catch (Exception e) {
             throw new ApiException(503, "leader node " + leaderId + " did not accept the job: " + rootMessage(e));
@@ -166,7 +184,7 @@ public class JobDirectory {
         }
         boolean anyActive = false;
         for (Job job : snapshot) {
-            int owner = job.getLeaderNode();
+            int owner = job.ownerNode();
             boolean ownerUp = isUp(statuses, owner);
             boolean otherLeader = agreedLeader != null && agreedLeader != owner;
             if (job.getStatus().isActive()) {
@@ -178,12 +196,23 @@ public class JobDirectory {
                 // only after ORPHAN_AFTER_MS of continuous unreachability or once another leader is agreed.
                 long down = ownerUp ? 0 : now - downSince.getOrDefault(owner, now);
                 if (otherLeader || down >= ORPHAN_AFTER_MS) {
+                    Job latest;
                     synchronized (this) {
-                        Job current = jobs.get(job.getJobId());
-                        if (current != null && current.orphan(now) && !otherLeader) {
-                            provisional.add(job.getJobId());
+                        latest = jobs.get(job.getJobId());
+                    }
+                    if (latest != null && latest.getStatus().isActive() && replication.getAsBoolean()
+                            && latest.isRecoverable() && awaitRecovery(latest, owner, agreedLeader, now)) {
+                        // a new primary has the job (or may still take it): not orphaned
+                    } else {
+                        synchronized (this) {
+                            Job current = jobs.get(job.getJobId());
+                            if (current != null && current.orphan(now) && !otherLeader) {
+                                provisional.add(job.getJobId());
+                            }
                         }
                     }
+                } else {
+                    recoveryWaitSince.remove(job.getJobId());
                 }
             } else if (provisional.contains(job.getJobId())) {
                 if (otherLeader) {
@@ -214,6 +243,41 @@ public class JobDirectory {
             }
         }
         active = anyActive;
+    }
+
+    /**
+     * A replicated job whose owner is gone. If a different leader is agreed and reports the job, the
+     * directory follows the job to it (the new primary is resuming it). True means "do not orphan it
+     * yet": it was taken over, or the recovery window is still open.
+     */
+    private boolean awaitRecovery(Job job, int owner, Integer agreedLeader, long now) {
+        String jobId = job.getJobId();
+        long since = recoveryWaitSince.computeIfAbsent(jobId, k -> now);
+        if (agreedLeader != null && agreedLeader != owner) {
+            try {
+                OrchestratorService orchestrator = orchestratorOf(agreedLeader);
+                Job fresh = monitor.call(() -> orchestrator.getJob(jobId));
+                // Only a copy that names the new leader as its owner is the recovered job; anything
+                // else is a stale record and the new primary has not taken the job yet.
+                if (fresh != null && fresh.ownerNode() != owner) {
+                    synchronized (this) {
+                        Job current = jobs.get(jobId);
+                        if (current != null && current.getStatus().isActive()) {
+                            store(fresh);
+                        }
+                    }
+                    recoveryWaitSince.remove(jobId);
+                    return true;
+                }
+            } catch (Exception ignored) {
+                // the new primary may still be promoting itself; the next cycle asks again
+            }
+        }
+        if (now - since < RECOVERY_WAIT_MS) {
+            return true;
+        }
+        recoveryWaitSince.remove(jobId);
+        return false;
     }
 
     /**
@@ -252,7 +316,7 @@ public class JobDirectory {
 
     private void refresh(Job cached) {
         try {
-            OrchestratorService orchestrator = orchestratorOf(cached.getLeaderNode());
+            OrchestratorService orchestrator = orchestratorOf(cached.ownerNode());
             Job fresh = monitor.call(() -> orchestrator.getJob(cached.getJobId()));
             if (fresh != null) {
                 synchronized (this) {
