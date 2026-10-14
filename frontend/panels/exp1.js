@@ -8,7 +8,7 @@ window.AgentGridPanels.exp1 = {
       <div class="panel-inner">
         <div style="margin-bottom: 16px;">
           <h2 style="font-size: 16px; font-weight: 700;">Experiment 1: RMI Remote Subtask Invocation</h2>
-          <p style="font-size: 13px; color: var(--text-muted);">
+          <p style="font-size: 14px; color: var(--text-muted);">
             Dispatches a single Subtask to a selected cluster node over Java RMI and verifies remote execution, Lamport clock ordering, and round-trip latency.
           </p>
         </div>
@@ -44,10 +44,10 @@ window.AgentGridPanels.exp1 = {
         </form>
 
         <div id="exp1-result-container" style="margin-top: 20px; display: none;">
-          <h3 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;">
+          <h3 class="subhead">
             Invocation Results
           </h3>
-          <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px;">
+          <div class="exp4-box">
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px;">
               <div class="stat-item">
                 <span class="stat-label">Agent ID</span>
@@ -68,13 +68,13 @@ window.AgentGridPanels.exp1 = {
             </div>
             <div>
               <span class="stat-label">Result Payload</span>
-              <div id="exp1-res-payload" class="mono-cell" style="background: rgba(255,255,255,0.04); padding: 8px 12px; border-radius: 6px; margin-top: 4px; color: var(--text-main);"></div>
+              <div id="exp1-res-payload" class="mono-cell inset" style="margin-top: 4px;"></div>
             </div>
           </div>
         </div>
 
         <div style="margin-top: 24px;">
-          <h3 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;">
+          <h3 class="subhead">
             Active Node Registry Bindings
           </h3>
           <div id="exp1-bindings-container" style="display: flex; flex-wrap: wrap; gap: 8px;">
@@ -125,12 +125,10 @@ window.AgentGridPanels.exp1 = {
       if (!container) return;
       // Binding names come from the node's registry: rendered as text.
       if (!node || !node.bindings || node.bindings.length === 0) {
-        container.replaceChildren(AG.h('span', { style: { fontSize: '12px', color: 'var(--text-dim)' } },
+        container.replaceChildren(AG.h('span', { style: { fontSize: '13px', color: 'var(--text-dim)' } },
           'No active bindings (Node may be offline)'));
       } else {
-        container.replaceChildren(...node.bindings.map(b => AG.h('span', { className: 'badge', style: {
-          fontFamily: 'var(--font-mono)', background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8',
-          borderColor: 'rgba(99, 102, 241, 0.3)' } }, '"' + b + '"')));
+        container.replaceChildren(...node.bindings.map(b => AG.h('span', { className: 'badge' }, '"' + b + '"')));
       }
     }
 

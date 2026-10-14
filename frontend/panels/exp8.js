@@ -44,7 +44,7 @@ window.AgentGridPanels.exp8 = {
     root.replaceChildren(...[
       h('div', { style: { marginBottom: '16px' } }, [
         h('h2', { style: { fontSize: '16px', fontWeight: '700' } }, 'Experiment 8: Primary-Backup Replication'),
-        h('p', { style: { fontSize: '13px', color: 'var(--text-muted)' } },
+        h('p', { style: { fontSize: '14px', color: 'var(--text-muted)' } },
           'The leader runs jobs as the primary and sends every job state change (submit, dispatch, result, done) to the '
           + 'backup, the live node with the next highest id, waiting for its ack. If the primary dies, the new leader '
           + 'replays its copy of the log and resumes the job: it ends RECOVERED instead of ORPHANED. Every event and dispatch '

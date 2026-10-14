@@ -39,6 +39,12 @@
     /** Called with the membership view whenever its epoch changes (a node was added or removed). */
     onMembershipChange: (cb) => state.membershipListeners.push(cb),
     getMembership: () => state.membership,
+    /** An ISO timestamp in Indian Standard Time, e.g. "1 Oct 2026, 23:42:20 IST"; unparseable input is returned as is. */
+    formatIst: (iso) => {
+      const d = new Date(iso);
+      return isNaN(d) ? String(iso) : d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short',
+        year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) + ' IST';
+    },
     /** Called with every new event from the SSE stream. */
     onEvent: (cb) => state.eventListeners.push(cb),
     /** Current member ids, ascending (falls back to the polled node list before the first view). */
@@ -215,7 +221,7 @@
       const es = new EventSource('/api/stream');
 
       es.addEventListener('open', () => {
-        statusLabel.textContent = 'Live SSE Connected';
+        statusLabel.textContent = 'Live';
         statusDot.className = 'status-dot connected pulse';
       });
 
@@ -258,7 +264,7 @@
       });
 
       es.addEventListener('error', () => {
-        statusLabel.textContent = 'SSE Disconnected (Polling)';
+        statusLabel.textContent = 'Stream lost, polling';
         statusDot.className = 'status-dot';
       });
     }
@@ -314,7 +320,7 @@
     state.membership = view;
     const badge = document.getElementById('membership-badge');
     if (badge) {
-      badge.textContent = `epoch ${view.epoch} · ${view.size} members · STRONG quorum ${view.quorum}`;
+      badge.textContent = `epoch ${view.epoch}, ${view.size} members, STRONG quorum ${view.quorum}`;
     }
     const addBtn = document.getElementById('add-node-btn');
     if (addBtn && !addBtn.dataset.pending) {
@@ -435,8 +441,8 @@
     c.root.classList.toggle('offline', !n.up);
     c.root.classList.toggle('is-leader', !!n.isLeader);
     // Non-breaking spaces keep each label with its value when the line wraps.
-    c.port.textContent = 'port :' + n.port + ' · weight ' + (n.weight == null ? '—' : n.weight)
-      + (n.up && n.epoch != null ? ' · epoch ' + n.epoch : '');
+    c.port.textContent = 'port :' + n.port + ', weight ' + (n.weight == null ? '—' : n.weight)
+      + (n.up && n.epoch != null ? ', epoch ' + n.epoch : '');
     c.leaderBadge.style.display = n.isLeader ? '' : 'none';
     c.backupBadge.style.display = isBackup ? '' : 'none';
     c.statusBadge.className = 'badge ' + (n.up ? 'online' : 'offline');
@@ -726,7 +732,7 @@
     countBadge.textContent = `${state.events.length} events`;
 
     if (state.events.length === 0) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="6">Awaiting cluster events...</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="6">No events yet.</td></tr>`;
       return;
     }
 
@@ -753,7 +759,7 @@
       tr.appendChild(cell(e.node > 0 ? 'Node ' + e.node : 'Cluster', 'mono-cell'));
       const details = cell(e.details || '', '');
       details.style.color = 'var(--text-main)';
-      details.style.wordBreak = 'break-all';
+      details.style.overflowWrap = 'anywhere';
       tr.appendChild(details);
       const lamport = cell('L=' + e.lamport, 'mono-cell');
       lamport.style.color = 'var(--accent-indigo)';

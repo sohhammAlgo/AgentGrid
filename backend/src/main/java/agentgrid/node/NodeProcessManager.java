@@ -175,7 +175,9 @@ public class NodeProcessManager {
     /** True if nothing listens on port: a wildcard bind succeeds (and is released at once). */
     static boolean portFree(int port) {
         try (ServerSocket probe = new ServerSocket()) {
-            probe.setReuseAddress(false);
+            // Windows: reuse would let us bind over a live listener, so keep it off there.
+            // Linux/macOS: without it, TIME_WAIT from the killed node (up to 60 s) reads as "in use".
+            probe.setReuseAddress(!System.getProperty("os.name", "").toLowerCase().contains("win"));
             probe.bind(new InetSocketAddress(port));
             return true;
         } catch (IOException e) {

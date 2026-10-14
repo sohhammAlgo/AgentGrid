@@ -3,34 +3,45 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AgentGrid-Lite — Cluster Control Plane</title>
+  <title>AgentGrid-Lite control plane</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M8 8H24M8 24H24M8 8V24M24 8V24' stroke='%2316213a' stroke-width='2' fill='none'/%3E%3Ccircle cx='8' cy='8' r='4' fill='%23fff' stroke='%2316213a' stroke-width='2'/%3E%3Ccircle cx='8' cy='24' r='4' fill='%23fff' stroke='%2316213a' stroke-width='2'/%3E%3Ccircle cx='24' cy='24' r='4' fill='%23fff' stroke='%2316213a' stroke-width='2'/%3E%3Ccircle cx='24' cy='8' r='4' fill='%2316213a'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="app-layout">
-    <!-- Header -->
+    <!-- Masthead -->
     <header class="header">
       <div class="brand">
-        <div class="logo-icon">⚡</div>
+        <!-- Four nodes on a grid; the filled one is the leader. -->
+        <svg class="logo-icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <path d="M8 8H24M8 24H24M8 8V24M24 8V24" stroke="currentColor" stroke-width="1.75" fill="none"/>
+          <circle cx="8" cy="8" r="3.25" fill="#fff" stroke="currentColor" stroke-width="1.75"/>
+          <circle cx="8" cy="24" r="3.25" fill="#fff" stroke="currentColor" stroke-width="1.75"/>
+          <circle cx="24" cy="24" r="3.25" fill="#fff" stroke="currentColor" stroke-width="1.75"/>
+          <circle cx="24" cy="8" r="3.25" fill="currentColor"/>
+        </svg>
         <div>
           <h1 class="logo-title">AgentGrid-Lite</h1>
-          <p class="logo-subtitle">Distributed Computing Control Plane & Live Dashboard</p>
+          <p class="logo-subtitle">Control plane and live view of the lab cluster</p>
         </div>
       </div>
       <div class="header-actions">
         <div class="connection-status" id="connection-status">
           <span class="status-dot pulse"></span>
-          <span id="connection-label">Connecting to Cluster...</span>
+          <span id="connection-label">Connecting…</span>
         </div>
       </div>
     </header>
 
-    <!-- Cluster Nodes Overview Bar -->
+    <!-- Node fleet: one lane per process -->
     <section class="cluster-section">
       <div class="section-header">
         <div class="events-title-wrap">
-          <h2>Cluster Node Fleet</h2>
-          <span class="badge" id="online-count-badge">— Online</span>
+          <h2>Node fleet</h2>
+          <span class="badge" id="online-count-badge">— online</span>
           <span class="badge" id="membership-badge">epoch —</span>
         </div>
         <div class="fleet-controls" id="fleet-controls"></div>
@@ -41,39 +52,37 @@
       </div>
     </section>
 
-    <!-- Job Console: jobs run by the orchestrator on the elected leader -->
+    <!-- Jobs run by the orchestrator on the elected leader -->
     <section class="job-section">
       <div class="section-header">
-        <h2>Job Console</h2>
+        <h2>Jobs</h2>
         <span class="badge" id="job-leader-badge">leader: —</span>
       </div>
       <div class="job-console" id="job-console"></div>
     </section>
 
-    <!-- Main Workspace: Panels + Event Log -->
+    <!-- Workspace: experiment panels beside the event ledger -->
     <div class="workspace-grid">
-      <!-- Left Column: Experiment Modules -->
       <section class="panel-section">
         <div class="tabs-header" id="module-tabs">
-          <!-- Dynamic Tabs from /api/modules -->
+          <!-- Dynamic tabs from /api/modules -->
         </div>
         <div class="tab-content" id="module-content">
           <!-- Module views injected dynamically -->
         </div>
       </section>
 
-      <!-- Right Column: Real-time Event Log -->
       <section class="events-section">
         <div class="section-header">
           <div class="events-title-wrap">
-            <h2>Cluster Event Stream</h2>
+            <h2>Event stream</h2>
             <span class="badge" id="event-count-badge">0 events</span>
           </div>
           <div class="events-controls">
-            <span class="order-label">Order by:</span>
+            <span class="order-label">Order by</span>
             <div class="toggle-group">
               <button id="order-lamport-btn" class="toggle-btn active" title="Sort by Lamport logical time">Lamport</button>
-              <button id="order-wall-btn" class="toggle-btn" title="Sort by Callee Node Wall Clock">Node Wall Clock</button>
+              <button id="order-wall-btn" class="toggle-btn" title="Sort by the node's wall clock">Node wall clock</button>
             </div>
             <button id="clear-events-btn" class="btn btn-sm btn-ghost" title="Clear table">Clear</button>
           </div>
@@ -88,11 +97,11 @@
                 <th style="width: 64px;">Node</th>
                 <th>Details</th>
                 <th style="width: 66px;">Lamport</th>
-                <th style="width: 104px;">Node Wall Time</th>
+                <th style="width: 104px;">Node wall time</th>
               </tr>
             </thead>
             <tbody id="events-tbody">
-              <tr class="empty-row"><td colspan="6">Awaiting cluster events...</td></tr>
+              <tr class="empty-row"><td colspan="6">No events yet.</td></tr>
             </tbody>
           </table>
         </div>

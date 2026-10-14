@@ -75,7 +75,7 @@
       usable = !!ix.usable;
       if (usable) {
         text = 'INDEX retrieval available: MapReduce index of ' + ix.terms + ' terms over ' + ix.documents
-          + ' documents, built ' + ix.builtAt + '.';
+          + ' documents, built ' + AG.formatIst(ix.builtAt) + '.';
       } else if (!ix.available) {
         text = 'INDEX retrieval disabled: no MapReduce index yet. Run MapReduce first (MapReduce tab, job "index").';
       } else {

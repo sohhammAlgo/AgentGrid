@@ -71,20 +71,20 @@ window.AgentGridPanels.exp5 = {
     container.replaceChildren(h('div', { className: 'panel-inner', id: 'exp5-root' }, [
       h('div', { style: { marginBottom: '16px' } }, [
         h('h2', { style: { fontSize: '16px', fontWeight: '700' } }, 'Experiment 5: Replicated Blackboard'),
-        h('p', { style: { fontSize: '13px', color: 'var(--text-muted)' } }, [
+        h('p', { style: { fontSize: '14px', color: 'var(--text-muted)' } }, [
           'STRONG writes replicate synchronously to every live replica and need ', quorumText,
           '; with fewer they are refused and nothing is written. '
           + 'EVENTUAL writes are acknowledged locally and pushed to peers after a simulated lag, with retries and periodic anti-entropy. '
           + 'Replicas resolve conflicts by last-writer-wins on the writer node\'s Berkeley-corrected clock (ties go to the higher node id). '
           + 'Replication is not fenced by membership epoch; anti-entropy covers gaps.'])
       ]),
-      box('Clock sync', [h('label', { style: { display: 'flex', gap: '8px', alignItems: 'center', fontSize: '13px' } },
+      box('Clock sync', [h('label', { style: { display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px' } },
         [autoToggle, 'Auto Berkeley sync (periodic on the leader, and on node rejoin)', autoNote])]),
       box('Write', [h('div', { className: 'exp4-row' }, [wNode, wKey, wValue, wMode, wButton]), wResult]),
       box('Read', [h('div', { className: 'exp4-row' }, [rKey, rButton]), rResult]),
       box('Metrics', [metricsBox]),
       box('Replicas', [h('div', { className: 'exp4-row', style: { marginBottom: '10px' } }, [prefix,
-        h('label', { style: { display: 'flex', gap: '6px', alignItems: 'center', fontSize: '12px' } }, [hideJobs, 'hide job/ keys'])]),
+        h('label', { style: { display: 'flex', gap: '6px', alignItems: 'center', fontSize: '13px' } }, [hideJobs, 'hide job/ keys'])]),
         replicaBox])
     ]));
 

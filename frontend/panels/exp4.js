@@ -10,7 +10,7 @@ window.AgentGridPanels.exp4 = {
       <div class="panel-inner" id="exp4-root">
         <div style="margin-bottom: 16px;">
           <h2 style="font-size: 16px; font-weight: 700;">Experiment 4: Leader Election</h2>
-          <p style="font-size: 13px; color: var(--text-muted);">
+          <p style="font-size: 14px; color: var(--text-muted);">
             Every node pings its leader every 500 ms; three missed heartbeats trigger an election.
             Convergence is measured by the control plane from node events: first ELECTION_STARTED to last LEADER_ACCEPTED.
           </p>
@@ -100,7 +100,7 @@ window.AgentGridPanels.exp4 = {
       if (box.dataset.key === epKey) return;
       box.dataset.key = epKey;
       if (!ep) {
-        box.innerHTML = `<span style="font-size: 12px; color: var(--text-dim);">No election episode has completed yet.</span>`;
+        box.innerHTML = `<span style="font-size: 13px; color: var(--text-dim);">No election episode has completed yet.</span>`;
         return;
       }
       const kinds = Object.keys(ep.byKind || {});

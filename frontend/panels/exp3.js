@@ -8,14 +8,14 @@ window.AgentGridPanels.exp3 = {
       <div class="panel-inner">
         <div style="margin-bottom: 16px;">
           <h2 style="font-size: 16px; font-weight: 700;">Experiment 3: Physical Clock Drift & Berkeley Sync</h2>
-          <p style="font-size: 13px; color: var(--text-muted);">
+          <p style="font-size: 14px; color: var(--text-muted);">
             Manipulate artificial hardware clock skew across nodes and trigger round-trip compensated Berkeley algorithm synchronization to converge node physical clocks. The coordinator is the elected leader node, which is included in the average. Berkeley converges the nodes to their mean offset, not to real time, which is what LWW on the blackboard needs: the nodes agree with each other.
           </p>
         </div>
 
         <!-- Section 1: Set Clock Drift -->
-        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; margin-bottom: 20px;">
-          <h3 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); margin-bottom: 12px;">
+        <div class="exp4-box">
+          <h3 class="subhead">
             Inject / Adjust Physical Clock Drift
           </h3>
           <form id="exp3-drift-form" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: flex-end;">
@@ -36,22 +36,22 @@ window.AgentGridPanels.exp3 = {
         </div>
 
         <!-- Section 2: Berkeley Synchronization Round -->
-        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
+        <div class="exp4-box">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div>
-              <h3 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-dim);">
+              <h3 class="subhead">
                 Berkeley Round on the Leader Node
               </h3>
-              <span style="font-size: 12px; color: var(--text-muted);">
+              <span style="font-size: 13px; color: var(--text-muted);">
                 Asks the elected leader to poll every live node, compensate each reading for RTT, include itself in the average, and send each node its correction. Unreachable nodes are skipped. Returns 409 while no leader is agreed.
               </span>
             </div>
-            <button id="exp3-sync-btn" class="btn btn-primary" style="background: linear-gradient(135deg, var(--accent-emerald), #059669);">
+            <button id="exp3-sync-btn" class="btn btn-primary">
               Sync Now (Berkeley Round)
             </button>
           </div>
 
-          <div id="exp3-sync-result-box" style="display: none; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; margin-top: 14px;">
+          <div id="exp3-sync-result-box" class="inset" style="display: none; margin-top: 14px;">
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
               <div class="stat-item">
                 <span class="stat-label">Max Spread Before</span>

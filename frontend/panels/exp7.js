@@ -32,11 +32,11 @@ window.AgentGridPanels.exp7 = {
     container.replaceChildren(h('div', { className: 'panel-inner', id: 'exp7-root' }, [
       h('div', { style: { marginBottom: '16px' } }, [
         h('h2', { style: { fontSize: '16px', fontWeight: '700' } }, 'Experiment 7: MapReduce with Apache Spark'),
-        h('p', { style: { fontSize: '13px', color: 'var(--text-muted)' } },
+        h('p', { style: { fontSize: '14px', color: 'var(--text-muted)' } },
           'Word count and an inverted index over the 40 corpus documents: map, map-side combine, hash-partitioned '
           + 'shuffle, reduce. Every Spark result is checked against plain Python. A successful index run '
           + 'enables INDEX retrieval in the Job Console.'),
-        h('p', { style: { fontSize: '12px', color: 'var(--text-dim)', marginTop: '6px' } },
+        h('p', { style: { fontSize: '13px', color: 'var(--text-dim)', marginTop: '6px' } },
           'Spark runs in local mode on the control-plane machine, not on the cluster nodes.')
       ]),
       h('div', { className: 'exp4-box' }, [
@@ -86,7 +86,7 @@ window.AgentGridPanels.exp7 = {
         h('span', {}, ['job ', h('b', {}, r.job)]),
         h('span', {}, r.partitions + ' partitions'),
         h('span', {}, r.docCount + ' documents'),
-        h('span', {}, 'built ' + r.builtAt),
+        h('span', {}, 'built ' + AG.formatIst(r.builtAt)),
         h('span', {}, 'whole run ' + (r.wallMs == null ? '—' : (r.wallMs / 1000).toFixed(1) + ' s') + ' (incl. Spark start-up)')
       ]));
 
@@ -147,7 +147,7 @@ window.AgentGridPanels.exp7 = {
     function renderError(message) {
       results.replaceChildren(h('div', { className: 'exp4-box' }, [
         h('h3', {}, 'MapReduce run failed'),
-        h('pre', { className: 'text-rose', style: { whiteSpace: 'pre-wrap', fontSize: '12px', margin: '0' } }, message)
+        h('pre', { className: 'text-rose', style: { whiteSpace: 'pre-wrap', fontSize: '13px', margin: '0' } }, message)
       ]));
     }
 
