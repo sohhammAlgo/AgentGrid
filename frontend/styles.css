@@ -527,10 +527,10 @@ b, strong { font-weight: 600; }
   overflow: hidden;
 }
 
-/* Eight experiments as a drafted index: four cells per row, rules between them. */
+/* Nine experiments as a drafted index: three cells per row, rules between them. */
 .tabs-header {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1px;
   background: var(--rule);
   border-bottom: 1px solid var(--rule-strong);
@@ -959,6 +959,8 @@ td.bb-missing {
   .exp4-stats { grid-template-columns: repeat(2, 1fr); }
   .job-pipeline { grid-template-columns: 1fr; }
   .tabs-header { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* An odd last tab spans the row instead of leaving an empty cell. */
+  .tab-btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
   /* Tables inside a scroll wrapper scroll sideways instead of crushing their columns. */
   .events-table-wrapper .events-table,
   .exp4-table-wrap .events-table { min-width: 560px; }

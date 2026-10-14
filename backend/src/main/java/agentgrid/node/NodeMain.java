@@ -2,6 +2,7 @@ package agentgrid.node;
 
 import agentgrid.clock.LamportClock;
 import agentgrid.clock.TimeServiceImpl;
+import agentgrid.collective.CollectiveNode;
 import agentgrid.orchestrator.Corpus;
 import agentgrid.orchestrator.Orchestrator;
 import agentgrid.orchestrator.StrategyRegistry;
@@ -84,6 +85,17 @@ public class NodeMain {
             String algorithm = System.getProperty("agentgrid.election.algorithm", ElectionNode.BULLY);
 
             registry = LocateRegistry.createRegistry(port);
+
+            // Exp 9: MPI-style collectives over plain TCP on the RMI port + collectivePortOffset. Bound
+            // before the node answers pings; without it the node still runs and collectives name it.
+            int collectivePort = port + config.getCollectivePortOffset();
+            try {
+                new CollectiveNode(nodeId, collectivePort, () -> config.membership().getEpoch()).start();
+                System.out.println("[Node " + nodeId + "] collectives on port " + collectivePort);
+            } catch (java.io.IOException e) {
+                System.err.println("[Node " + nodeId + "] collective port " + collectivePort + " unavailable ("
+                        + e.getMessage() + "); collectives that include this node will fail");
+            }
 
             LamportClock lamportClock = new LamportClock();
 

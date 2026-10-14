@@ -88,6 +88,8 @@ public class ClusterConfig {
     private final long berkeleyIntervalMs;
     /** Python interpreter the control plane runs Exp 7 (MapReduce) with; see getPythonCommand(). */
     private volatile String pythonCommand = DEFAULT_PYTHON_COMMAND;
+    private volatile int collectivePortOffset = DEFAULT_COLLECTIVE_PORT_OFFSET;
+    private volatile long collectiveTimeoutMs = DEFAULT_COLLECTIVE_TIMEOUT_MS;
 
     public ClusterConfig(Map<Integer, NodeConfig> nodes) {
         this(nodes, DEFAULT_SIMULATED_WORK_MS);
@@ -139,6 +141,21 @@ public class ClusterConfig {
      */
     public String getPythonCommand() {
         return pythonCommand;
+    }
+
+    /** Default offset of a node's collective (Exp 9) TCP port from its RMI port: 1601 -> 1701. */
+    public static final int DEFAULT_COLLECTIVE_PORT_OFFSET = 100;
+    /** Default time a collective (Exp 9) waits for any rank. */
+    public static final long DEFAULT_COLLECTIVE_TIMEOUT_MS = 3000L;
+
+    /** A node's collective port is its RMI port plus this (property "collectivePortOffset"). */
+    public int getCollectivePortOffset() {
+        return collectivePortOffset;
+    }
+
+    /** How long a collective waits for a rank before it fails (property "collectiveTimeoutMs"). */
+    public long getCollectiveTimeoutMs() {
+        return collectiveTimeoutMs;
     }
 
     /** Epoch of the membership read from cluster.properties. */
@@ -340,6 +357,8 @@ public class ClusterConfig {
         if (python != null && !python.isBlank()) {
             config.pythonCommand = python.trim();
         }
+        config.collectivePortOffset = (int) longProperty(props, "collectivePortOffset", DEFAULT_COLLECTIVE_PORT_OFFSET);
+        config.collectiveTimeoutMs = longProperty(props, "collectiveTimeoutMs", DEFAULT_COLLECTIVE_TIMEOUT_MS);
         return config;
     }
 

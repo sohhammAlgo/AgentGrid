@@ -1,6 +1,7 @@
 package agentgrid.control;
 
 import agentgrid.clock.TimeService;
+import agentgrid.collective.CollectiveApi;
 import agentgrid.common.Result;
 import agentgrid.common.Subtask;
 import agentgrid.node.ClockCoordinatorService;
@@ -89,6 +90,7 @@ public class ControlPlaneMain {
     private final IndexStore indexStore;
     private final MapReduceApi mapReduceApi;
     private final ReplicationApi replicationApi;
+    private final CollectiveApi collectiveApi;
     private final HttpServer server;
     private final Path frontendDir;
 
@@ -115,6 +117,8 @@ public class ControlPlaneMain {
                 + (Boolean.TRUE.equals(index.get("usable")) ? index.get("terms") + " terms, built " + index.get("builtAt")
                 : "not usable (" + index.get("reason") + ")"));
         this.mapReduceApi = new MapReduceApi(config, eventLog, indexStore, repoRoot);
+        // Exp 9: MPI-style collectives over the members' collective ports.
+        this.collectiveApi = new CollectiveApi(config, monitor, eventLog);
 
         this.frontendDir = resolveFrontendDirectory();
 
@@ -190,6 +194,7 @@ public class ControlPlaneMain {
         server.createContext("/api/blackboard/write", this::handleBlackboardWrite);
         server.createContext("/api/mapreduce", this::handleMapReduce);
         server.createContext("/api/replication", this::handleReplication);
+        server.createContext("/api/collective", this::handleCollective);
         server.createContext("/", this::handleStatic);
     }
 
@@ -210,7 +215,8 @@ public class ControlPlaneMain {
                 Map.of("id", "exp5", "title", "Blackboard"),
                 Map.of("id", "exp6", "title", "Load Balancing"),
                 Map.of("id", "exp7", "title", "MapReduce"),
-                Map.of("id", "exp8", "title", "Replication")
+                Map.of("id", "exp8", "title", "Replication"),
+                Map.of("id", "exp9", "title", "Collectives")
         );
         sendJsonResponse(exchange, 200, modules);
     }
@@ -1075,6 +1081,35 @@ public class ControlPlaneMain {
                 default -> sendError(exchange, 404, "Unknown replication endpoint: " + path);
             }
         } catch (JobDirectory.ApiException e) {
+            sendError(exchange, e.getStatus(), e.getMessage());
+        }
+    }
+
+    // =========================================================================
+    // COLLECTIVES (Exp 9)
+    // =========================================================================
+
+    /** GET /api/collective: the communicator; POST /api/collective/{broadcast,scatter,gather,demo} (see CollectiveApi). */
+    private void handleCollective(HttpExchange exchange) throws IOException {
+        String path = exchange.getRequestURI().getPath();
+        try {
+            if (path.equals("/api/collective") || path.equals("/api/collective/")) {
+                if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) {
+                    sendMethodNotAllowed(exchange);
+                    return;
+                }
+                sendJsonResponse(exchange, 200, collectiveApi.view());
+                return;
+            }
+            if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+                sendMethodNotAllowed(exchange);
+                return;
+            }
+            if (!validatePostHeaders(exchange)) return;
+            Map<String, Object> req = readJsonBody(exchange);
+            if (req == null) return;
+            sendJsonResponse(exchange, 200, collectiveApi.run(path.substring("/api/collective/".length()), req));
+        } catch (CollectiveApi.ApiError e) {
             sendError(exchange, e.getStatus(), e.getMessage());
         }
     }

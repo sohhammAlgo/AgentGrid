@@ -284,6 +284,8 @@ binds these services in its own RMI registry:
 - `blackboardAntiEntropyMs=2000`: how often each replica pulls newer records from a random peer.
 - `berkeleyIntervalMs=30000`: how often the leader runs a Berkeley round (0 disables the
   periodic round).
+- `collectivePortOffset=100`, `collectiveTimeoutMs=3000`: each node's Exp 9 collective port is its RMI port
+  + 100 (1701–1705), and a collective fails, naming the rank, when a rank does not answer within 3 s.
 
 - `pythonCommand=python`: the Python interpreter the control plane runs Exp 7 (MapReduce) with.
   It needs pyspark (`mapreduce/requirements.txt`) and Java 17+. On this machine `python` is a
@@ -336,7 +338,7 @@ malformed or invalid input returns 400. Errors are `{"error": "...", "status": N
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| GET | `/api/modules` | | Dashboard modules: exp1–exp8 |
+| GET | `/api/modules` | | Dashboard modules: exp1–exp9 |
 | GET | `/api/cluster` | | Per current member: `id, port, up, poolSize, weight, epoch` (the membership epoch it reports), `queueDepth, lamport, clockOffsetMs, bindings, leaderView, isLeader` |
 | GET | `/api/cluster?view=membership` | | `{epoch, size, quorum, members: [{id, port, poolSize, weight}], nextId, minMembers, maxMembers, changeInProgress, processes, nodes}` (`nodes` = the array above) |
 | POST | `/api/cluster/nodes` | `{"poolSize": 4, "weight": 4}` (both optional) | Adds a node (see Elastic membership): `{node, port, poolSize, weight, readyMs, snapshotSource, membership, pushed, clockRound, totalMs}`; 409 at 9 members or during another change; 500 with the reason if the node could not be started, came up or pulled its snapshot (membership unchanged) |
@@ -371,6 +373,8 @@ malformed or invalid input returns 400. Errors are `{"error": "...", "status": N
 | POST | `/api/replication/toggle` | `{"enabled": false}` | Switches primary-backup replication on or off for the whole cluster (pushed to every node, passed to nodes started later); returns the new view |
 | GET | `/api/replication/log?node=N&from=S` | | One node's replicated log as summaries `{seq, term, jobId, type, subtaskId, digest}` with seq above `from`, plus its `term` and `lastSeq`; the digest covers the whole event, so two replicas hold the same log iff their lists are equal |
 | POST | `/api/replication/test/stale` | `{"node": 4, "term": 2, "event": true}` | Test only (404 unless `-Dagentgrid.testHooks=true`): plays a stale primary against one node, sending its orchestrator a replicated event and its worker a subtask carrying that (lower) term; returns what each answered. `"event": false` tests the dispatch only |
+| GET | `/api/collective` | | The communicator (Exp 9): `{epoch, size, root, rootNode, leader, timeoutMs, portOffset, maxMessageChars, maxInts, ranks: [{rank, node, port, rmiPort, up, role}], running}` |
+| POST | `/api/collective/broadcast`, `/scatter`, `/gather`, `/demo` | see Collective communication (Exp 9) | Per-rank results, `trace`, `messages, bytesSent, rounds, timeMs, totalMs, lamport`; 400 for invalid input, 409 while another collective runs, after a membership change or for chunks a rank does not hold, 503 naming the rank that did not respond |
 
 ### Jobs
 A job runs on the orchestrator of the elected leader: RETRIEVE (keyword match, fanned out
@@ -621,6 +625,57 @@ the dashboard tab (switch, a kill mid-job with replication ON and OFF, RECOVERED
 - More than 9 members, or logs of many thousands of events (the snapshot sent to a new backup grows with the log).
 - Several concurrent control-plane clients toggling the switch at once.
 
+### Collective communication (Exp 9)
+**What.** MPI-style Broadcast, Scatter and Gather between the node processes over plain TCP (`java.net`
+sockets, no MPI library), code in `backend/src/main/java/agentgrid/collective/`. The communicator is the
+current membership sorted by node id: rank = position (0..n-1), size = n, plus the membership epoch. A member
+that is down stays in it, as in MPI, and fails the operation naming its rank. The root defaults to the leader's
+rank; any rank can be chosen. Each node listens on its RMI port + `collectivePortOffset` (1701-1705, loopback
+only). The control plane plays `mpirun`: it connects to every rank, sends each its START frame (its rank, the
+root, the communicator), and the ranks then move the data directly between themselves. Frames are
+length-prefixed: `opId, op, epoch, srcRank, dstRank, seq (the round), payloadLength, payload`; each connection
+has one reader thread that blocks on the socket.
+
+| MPI | Endpoint | What the ranks do |
+|---|---|---|
+| `MPI_COMM_WORLD`, rank, size | `GET /api/collective` | `{epoch, size, root, rootNode, leader, timeoutMs, portOffset, ranks: [{rank, node, port, rmiPort, up, role}], running}` |
+| `MPI_Bcast` | `POST /api/collective/broadcast {"root": 4, "message": "hi", "algorithm": "TREE"}` | LINEAR: the root sends to each rank in turn, n-1 messages in n-1 rounds. TREE (default): binomial tree, in round k every rank that has the data sends it to the rank 2^(k-1) further on, n-1 messages in ceil(log2 n) rounds. Each rank reports the SHA-256 of the bytes it holds |
+| `MPI_Scatter` | `POST /api/collective/scatter {"root": 4, "data": [1, 2, 3, ...]}` | The root sends chunk i (equal chunks, in rank order) to rank i. A length that does not divide by n is refused with 400 naming the remainder; nothing is padded |
+| `MPI_Gather` | `POST /api/collective/gather {"root": 4, "randomDelay": true}` | Each rank sends the chunk it holds to the root, which puts chunk i at position i whatever the arrival order. `randomDelay` makes each rank wait a shuffled 0, 60, 120, ... ms; the response has the arrival order next to the rank order |
+| scatter, compute, gather | `POST /api/collective/demo {"root": 4}` | Scatter 1..N (N = 4 x size), every rank squares its chunk, gather; the sum of squares is checked against N(N+1)(2N+1)/6 |
+
+`root` is optional everywhere. Each operation returns per-rank results, a message trace (from and to rank and
+node, bytes, round, sent at, received at: ms after the START frames went out, from `System.nanoTime()`, which
+all JVMs on one machine share) and totals (messages, bytes, rounds, time from the first send to the last
+receipt). It is recorded as a `COLLECTIVE_BCAST`, `COLLECTIVE_SCATTER` or `COLLECTIVE_GATHER` event with the
+control plane's Lamport time, failures included. Input limits: message 1-1024 characters, at most 1000 ints,
+root 0..n-1, else 400. One operation runs at a time (409 while another runs).
+
+**Failure.** A rank that is down fails the operation before any rank starts it: 503 `rank r (node X) did not
+respond` within about 5 ms here (connect pre-check, 300 ms at most). A rank whose process dies mid-operation fails it as
+soon as its connection drops; a rank that stays silent fails it after `collectiveTimeoutMs` (3 s) plus at most
+0.5 s for the other ranks to report. A membership change during the operation fails it with 409. Chunks from an
+older epoch, or a restarted rank holding none, are not gathered (409, "run Scatter first").
+
+**Run.** From `backend/`, with the control plane running:
+```bash
+java -cp build/classes agentgrid.collective.CollectiveDemo     # terminal demo (about 1 s), ends with VERIFIED lines
+java -cp build/classes agentgrid.control.CollectiveVerifier    # C1-C9, against a fresh control plane
+```
+Dashboard: the **Collectives** tab (communicator table, root selector, Broadcast with LINEAR / TREE and their
+comparison, Scatter, Gather with the delay switch, the scatter-compute-gather demo, every message trace).
+
+**Limits.**
+- Sockets between processes on one machine, not real MPI: no MPI runtime, no network between machines, and the
+  trace times rely on the one clock those processes share.
+- The root is the bottleneck of Scatter and Gather: it sends or receives all n-1 messages itself (linear
+  algorithms only; the tree is for Broadcast).
+- No Scatterv / Gatherv (unequal chunks), no Reduce, Allreduce, Allgather or Alltoall, no non-blocking
+  collectives, one communicator (all members), one operation at a time.
+- A message costs well under a millisecond here, so TREE's fewer rounds save little time (about 1.2 ms vs 1.4 ms
+  for 5 ranks); the first operation through a fresh JVM also pays for class loading.
+- What a rank holds lives in that process's memory: a restarted node holds nothing until the next Scatter.
+
 ### Verifiers
 With the control plane running, from `backend/`:
 ```bash
@@ -630,6 +685,7 @@ java -cp build/classes agentgrid.control.BlackboardVerifier # Phase 5: replicate
 java -cp build/classes agentgrid.control.MembershipVerifier # elastic membership: add / remove nodes (M1-M13)
 java -cp build/classes agentgrid.control.MapReduceVerifier  # Exp 7: MapReduce runs and INDEX retrieval (MR1-MR6)
 java -cp build/classes agentgrid.control.ReplicationVerifier # Exp 8: primary-backup replication (R1-R6; needs -Dagentgrid.testHooks=true)
+java -cp build/classes agentgrid.control.CollectiveVerifier # Exp 9: Broadcast, Scatter, Gather (C1-C9)
 java -cp build/classes agentgrid.control.RestartStress      # restart all 5 nodes at once, 10 cycles
 java -cp build/classes agentgrid.control.JobFlakeCheck      # 30 jobs, no false ORPHANED
 java -cp build/classes agentgrid.control.JobFlakeCheck orphan 5  # kill the leader mid-job: time to JOB_ORPHANED
@@ -645,6 +701,8 @@ against a fresh control plane. MembershipVerifier also needs a fresh one, and le
 cluster whose ids are not 1-5 (it removes nodes 4 and 5 to test the minimum-size rule, and ids
 are never reused).
 ReplicationVerifier needs `-Dagentgrid.testHooks=true` on the control plane (R4 plays a stale primary); R6 adds and removes nodes and leaves a 4-member cluster.
+CollectiveVerifier kills and restarts a node (C7) and adds and removes nodes (C8, run last), so it leaves a
+5-member cluster whose ids are not 1-5.
 MapReduceVerifier needs a control plane whose `pythonCommand` has pyspark. MR3 runs only when the control
 plane was started without `mapreduce/out/inverted_index.json`, and MR5 only with `-Dagentgrid.testHooks=true`;
 otherwise they are reported as SKIP with the reason:
